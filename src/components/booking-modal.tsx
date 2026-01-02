@@ -1,0 +1,212 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
+import type { Room, Doctor, Booking, AddBookingResult } from '@/lib/types';
+import { generateTimeSlots, formatMinutesToTime } from '@/lib/utils';
+import { Calendar as CalendarIcon, Clock, Loader2, Lightbulb } from 'lucide-react';
+import { automatedConflictResolution } from '@/ai/flows/automated-conflict-resolution';
+
+const bookingFormSchema = z.object({
+  doctorId: z.string().min(1, { message: 'Debe seleccionar un doctor.' }),
+  date: z.date({ required_error: 'Debe seleccionar una fecha.' }),
+  startMin: z.coerce.number().min(1, { message: 'Debe seleccionar hora de inicio.' }),
+  endMin: z.coerce.number().min(1, { message: 'Debe seleccionar hora de fin.' }),
+}).refine(data => data.endMin > data.startMin, {
+  message: 'La hora de fin debe ser posterior a la de inicio.',
+  path: ['endMin'],
+});
+
+type BookingFormValues = z.infer<typeof bookingFormSchema>;
+
+interface BookingModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  room: Room;
+  doctors: Doctor[];
+  bookings: Booking[];
+  onAddBooking: (data: any) => Promise<AddBookingResult>;
+}
+
+export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: BookingModalProps) {
+  const { toast } = useToast();
+  const [view, setView] = useState<'form' | 'suggestions'>('form');
+  const [suggestions, setSuggestions] = useState<{ startMin: number, endMin: number }[]>([]);
+  const [conflictReason, setConflictReason] = useState<string | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const form = useForm<BookingFormValues>({
+    resolver: zodResolver(bookingFormSchema),
+    defaultValues: {
+      date: new Date(),
+    }
+  });
+
+  const selectedDate = form.watch('date');
+  const timeSlots = React.useMemo(() => generateTimeSlots(selectedDate || new Date()), [selectedDate]);
+
+  useEffect(() => {
+    if (isOpen) {
+      form.reset({ date: new Date(), doctorId: '', startMin: 0, endMin: 0 });
+      setView('form');
+      setSuggestions([]);
+      setIsLoading(false);
+    }
+  }, [isOpen, form]);
+
+  async function onSubmit(data: BookingFormValues) {
+    setIsLoading(true);
+    const result = await onAddBooking({ ...data, roomId: room.id });
+    setIsLoading(false);
+
+    if (result.success) {
+      toast({
+        title: "Reserva Creada",
+        description: `El consultorio ${room.name} ha sido reservado.`,
+      });
+      onClose();
+    } else if (result.suggestions && result.suggestions.length > 0) {
+      setSuggestions(result.suggestions);
+      setConflictReason(result.reason);
+      setView('suggestions');
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Error de Reserva",
+        description: result.message || "No se pudo crear la reserva debido a un conflicto irresoluble.",
+      });
+    }
+  }
+
+  const handleSelectSuggestion = (suggestion: { startMin: number; endMin: number }) => {
+    form.setValue('startMin', suggestion.startMin, { shouldValidate: true });
+    form.setValue('endMin', suggestion.endMin, { shouldValidate: true });
+    setView('form');
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-headline">{view === 'form' ? `Apartar ${room.name}`: 'Sugerencias de Horario'}</DialogTitle>
+           {view === 'form' && <DialogDescription>Complete los detalles para la nueva reserva.</DialogDescription>}
+        </DialogHeader>
+
+        {view === 'form' ? (
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="doctorId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Doctor</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue placeholder="Seleccione un doctor" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {doctors.map(doc => <SelectItem key={doc.id} value={doc.id}>{doc.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="date"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Fecha</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button variant={"outline"} className="pl-3 text-left font-normal">
+                          {field.value ? format(field.value, 'PPP', { locale: es }) : <span>Seleccione una fecha</span>}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField control={form.control} name="startMin" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Inicio</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Hora" /></SelectTrigger></FormControl>
+                    <SelectContent>{timeSlots.map(t => <SelectItem key={t.value} value={String(t.value)}>{t.label}</SelectItem>)}</SelectContent>
+                  </Select><FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="endMin" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Fin</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Hora" /></SelectTrigger></FormControl>
+                    <SelectContent>{timeSlots.map(t => <SelectItem key={t.value} value={String(t.value)}>{t.label}</SelectItem>)}</SelectContent>
+                  </Select><FormMessage />
+                </FormItem>
+              )} />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+              <Button type="submit" disabled={isLoading} className="bg-primary hover:bg-primary/90">
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Guardar Reserva
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+        ) : (
+          <div className="space-y-4">
+            <Alert>
+              <Lightbulb className="h-4 w-4" />
+              <AlertTitle>¡Conflicto de Horario Detectado!</AlertTitle>
+              <AlertDescription>{conflictReason || "El horario seleccionado se traslapa con otra reserva."}</AlertDescription>
+            </Alert>
+            <p className="text-sm font-medium text-foreground">Aquí hay algunas alternativas sugeridas por nuestra IA:</p>
+            <div className="space-y-2">
+              {suggestions.map((s, i) => (
+                <Button key={i} variant="outline" className="w-full justify-start" onClick={() => handleSelectSuggestion(s)}>
+                  <Clock className="mr-2 h-4 w-4" />
+                  {formatMinutesToTime(s.startMin)} - {formatMinutesToTime(s.endMin)}
+                </Button>
+              ))}
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setView('form')}>Volver al formulario</Button>
+            </DialogFooter>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
