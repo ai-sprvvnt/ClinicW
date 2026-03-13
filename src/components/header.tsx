@@ -2,12 +2,14 @@
 
 import React from 'react';
 import { ClinicWiseLogo } from './icons';
+import { useUser } from '@/firebase';
 import { useIsAdmin } from '@/hooks/use-is-admin';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Settings } from 'lucide-react';
+import { Settings, User as UserIcon } from 'lucide-react';
 
 export const Header = () => {
+  const { user } = useUser();
   const { isAdmin } = useIsAdmin();
 
   return (
@@ -20,13 +22,23 @@ export const Header = () => {
           </h1>
         </Link>
 
-        {isAdmin && (
+        <div className="flex items-center gap-2">
           <Link href="/admin">
-            <Button variant="ghost" size="sm" className="font-bold gap-2">
-              <Settings className="h-4 w-4" /> Panel Admin
+            <Button variant="ghost" size="sm" className="font-bold gap-2 text-muted-foreground hover:text-primary">
+              {isAdmin ? (
+                <>
+                  <Settings className="h-4 w-4" />
+                  <span className="hidden sm:inline">Panel Admin</span>
+                </>
+              ) : (
+                <>
+                  <UserIcon className="h-4 w-4" />
+                  <span className="hidden sm:inline">{user ? 'Mi Cuenta' : 'Acceso Staff'}</span>
+                </>
+              )}
             </Button>
           </Link>
-        )}
+        </div>
       </div>
     </header>
   );
