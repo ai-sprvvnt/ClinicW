@@ -20,17 +20,20 @@ interface RoomCardProps {
   room: Room;
   bookings: Booking[];
   doctors: Doctor[];
-  currentTime: Date;
+  currentTime: Date | null;
   onBook: () => void;
   onUpdateStatus: (bookingId: string, status: BookingStatus) => void;
 }
 
 export const RoomCard = ({ room, bookings, doctors, currentTime, onBook, onUpdateStatus }: RoomCardProps) => {
-  const statusInfo = getRoomStatus(room, bookings, doctors, currentTime);
+  // Para evitar errores de hidratación, usamos una fecha base estable si currentTime es null (durante SSR)
+  const now = currentTime || new Date(2025, 0, 1, 12, 0);
+  const statusInfo = getRoomStatus(room, bookings, doctors, now);
   const { status, booking, doctor, text } = statusInfo;
 
-  const canCheckIn = booking && booking.status === 'confirmed' && currentTime >= booking.startAt && currentTime < booking.endAt;
-  const canCheckOut = booking && booking.status === 'in_use';
+  // Solo habilitamos acciones de check-in/out si tenemos la hora real del cliente
+  const canCheckIn = currentTime && booking && booking.status === 'confirmed' && currentTime >= booking.startAt && currentTime < booking.endAt;
+  const canCheckOut = currentTime && booking && booking.status === 'in_use';
 
   return (
     <Card className="flex flex-col justify-between shadow-lg hover:shadow-xl transition-shadow duration-300">
@@ -59,7 +62,9 @@ export const RoomCard = ({ room, bookings, doctors, currentTime, onBook, onUpdat
           )}
           <div className="flex items-center gap-3">
             <Clock className="w-5 h-5" />
-            <p className="text-sm">{text}</p>
+            <p className="text-sm">
+              {currentTime ? text : "Actualizando estado..."}
+            </p>
           </div>
           {!doctor && status === 'Desocupado' && (
              <div className="flex items-center gap-3">

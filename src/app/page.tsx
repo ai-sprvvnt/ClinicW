@@ -35,9 +35,13 @@ export default function Home() {
     open: false,
     room: null,
   });
-  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Inicializamos con null para evitar discrepancias de hidratación entre servidor y cliente
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
   useEffect(() => {
+    // Establecemos la hora real solo después de que el componente se ha montado en el cliente
+    setCurrentTime(new Date());
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);

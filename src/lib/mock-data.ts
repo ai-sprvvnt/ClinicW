@@ -28,7 +28,8 @@ export const DOCTORS: Doctor[] = PlaceHolderImages.map((img, index) => ({
 }));
 
 // --- Generate dynamic mock bookings for today ---
-const today = startOfToday();
+// Usamos una fecha base estable para evitar errores de hidratación en SSR
+const today = set(new Date(2025, 0, 1), { hours: 0, minutes: 0, seconds: 0, milliseconds: 0 });
 const todayKey = format(today, 'yyyy-MM-dd');
 
 const createBooking = (
@@ -54,16 +55,17 @@ const createBooking = (
   };
 };
 
+// Usamos horas fijas para que el renderizado inicial sea predecible
 export const initialBookings: Booking[] = [
   // Room 1: Currently in use
-  createBooking(1, 'room-1', 'doc-1', new Date().getHours(), new Date().getHours() + 1, 'in_use'),
+  createBooking(1, 'room-1', 'doc-1', 9, 10, 'in_use'),
   // Room 1: Reserved for later
-  createBooking(2, 'room-1', 'doc-2', new Date().getHours() + 2, new Date().getHours() + 3, 'reserved'),
+  createBooking(2, 'room-1', 'doc-2', 11, 12, 'reserved'),
 
   // Room 2: Reserved for later today
-  createBooking(3, 'room-2', 'doc-3', new Date().getHours() + 1, new Date().getHours() + 2, 'reserved'),
+  createBooking(3, 'room-2', 'doc-3', 10, 11, 'reserved'),
 
-  // Room 3: Confirmed, but in the past (for demonstration)
+  // Room 3: Confirmed
   createBooking(4, 'room-3', 'doc-4', 8, 9, 'confirmed'),
   
   // Room 4 is free
