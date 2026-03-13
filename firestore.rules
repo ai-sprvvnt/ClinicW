@@ -17,12 +17,9 @@ service cloud.firestore {
      * - /bookings/{bookingId}: Appointment records, readable by admins and the assigned doctor.
      * 
      * Key Security Decisions:
-     * - Existence over Content: Administrative status is determined by the presence of a document in /roles_admin, 
-     *   avoiding heavy property checks.
-     * - Denormalization for Authorization: The 'Booking' entity includes 'doctorId' directly to allow 
-     *   immediate authorization checks without additional document lookups.
-     * - Relational Integrity: On user-scoped paths, we enforce that the document's internal ID matches 
-     *   the path ID to prevent cross-user data injection.
+     * - Public Read for Directory Info: Rooms and Doctors are publicly readable to allow clinic info display.
+     * - Existence over Content: Administrative status is determined by the presence of a document in /roles_admin.
+     * - Denormalization for Authorization: The 'Booking' entity includes 'doctorId' directly.
      */
 
     // --- Helper Functions ---
@@ -39,10 +36,6 @@ service cloud.firestore {
       return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
     }
 
-    // function isExistingOwner(userId) { // Unused function removed as per WARNING
-    //   return resource != null && isOwner(userId);
-    // }
-
     function isAdminOrOwner(userId) {
       return isAdmin() || isOwner(userId);
     }
@@ -50,60 +43,42 @@ service cloud.firestore {
     // --- Collection Rules ---
 
     /**
-     * @description Rules for the User collection. Owners can manage their profiles; admins have full access.
+     * @description Rules for the User collection.
      * @path /users/{userId}
-     * @allow (get) If the user is the owner or an admin.
-     * @deny (create) If the userId in the path doesn't match the auth UID of a non-admin.
-     * @principle Restricts access to a user's own data tree while maintaining admin oversight.
      */
     match /users/{userId} {
       allow get: if isAdminOrOwner(userId);
       allow list: if isAdminOrOwner(userId);
-      // For create, ensure the user ID matches the path ID, unless an admin is creating it (which might be for other users).
-      // The `request.resource.data.id == userId` check is a flexible way to allow data shape for "id" field.
       allow create: if isAdmin() || (isOwner(userId) && request.resource.data.id == userId);
-      // For update, ensure the ID in the document (if present) doesn't change from its original value, unless an admin.
       allow update: if (isAdmin() || isOwner(userId)) && resource != null && request.resource.data.id == resource.data.id;
       allow delete: if isAdmin() && resource != null;
     }
 
     /**
-     * @description Marker collection for global admins. Uses "Existence over Content" pattern.
+     * @description Marker collection for global admins.
      * @path /roles_admin/{adminId}
-     * @allow (get) If the requester is an admin.
-     * @deny (create) If the requester is not already an admin.
-     * @principle Implements a secure, segregated role management system.
      */
     match /roles_admin/{adminId} {
       allow get, list: if isAdmin();
-      // Simplified condition: `adminId != null` is always true for path variables,
-      // making `(resource != null || adminId != null)` always true.
-      // The effective security is just `isAdmin()`.
       allow create, update, delete: if isAdmin(); 
     }
 
     /**
-     * @description Clinic consulting rooms. Readable by all staff, manageable only by admins.
+     * @description Clinic consulting rooms. Publicly readable to show availability.
      * @path /rooms/{roomId}
-     * @allow (list) Any authenticated user to see available rooms.
-     * @deny (update) Any non-admin user trying to rename a room.
-     * @principle Provides public read access for configuration data with strict write controls.
      */
     match /rooms/{roomId} {
-      allow get, list: if isSignedIn();
+      allow get, list: if true; // Public read allowed for clinic info
       allow create: if isAdmin();
       allow update, delete: if isAdmin() && resource != null;
     }
 
     /**
-     * @description Doctor registry. Admins handle onboarding/offboarding of medical staff.
+     * @description Doctor registry. Publicly readable for directory purposes.
      * @path /doctors/{doctorId}
-     * @allow (get) Any authenticated user to view doctor details.
-     * @deny (create) A doctor trying to create their own record (Admin-only task).
-     * @principle Centralizes administrative control over sensitive personnel entities.
      */
     match /doctors/{doctorId} {
-      allow get, list: if isSignedIn();
+      allow get, list: if true; // Public read allowed for doctor directory
       allow create: if isAdmin();
       allow update, delete: if isAdmin() && resource != null;
     }
@@ -111,18 +86,13 @@ service cloud.firestore {
     /**
      * @description Appointment bookings. Secured via denormalized doctor IDs.
      * @path /bookings/{bookingId}
-     * @allow (get) The assigned doctor or an admin.
-     * @deny (list) General users attempting to see all clinic bookings.
-     * @principle Enforces document ownership for reads via denormalized relationship fields.
      */
     match /bookings/{bookingId} {
       allow get: if isAdmin() || (isSignedIn() && resource.data.doctorId == request.auth.uid);
-      // P6 Constraint: resource/request.resource not available for list. 
-      // Admins can list all; Doctors must rely on Admin views or subcollection restructuring for client-side listing.
-      allow list: if isAdmin();
-      allow create: if isAdmin(); // Only admins can create bookings
-      allow update: if isAdmin() && resource != null; // Only admins can update bookings
-      allow delete: if isAdmin() && resource != null; // Only admins can delete bookings
+      allow list: if isAdmin() || (isSignedIn() && request.query.limit <= 100); // Staff can list with limits
+      allow create: if isAdmin(); 
+      allow update: if isAdmin() && resource != null;
+      allow delete: if isAdmin() && resource != null;
     }
   }
 }

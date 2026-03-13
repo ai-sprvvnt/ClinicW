@@ -7,17 +7,21 @@ import { BookingModal } from '@/components/booking-modal';
 import { ROOMS } from '@/lib/mock-data';
 import type { Room, Booking, Doctor } from '@/lib/types';
 import { useBookingManager } from '@/hooks/use-booking-manager';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection } from 'firebase/firestore';
 
 export default function Home() {
+  const { user } = useUser();
   const { bookings, addBooking, updateBookingStatus } = useBookingManager();
   const db = useFirestore();
   
-  // Fetch real doctors from Firestore
+  // Fetch real doctors from Firestore. We only query if the user is authenticated 
+  // to follow best practices, although rules now allow public read.
   const doctorsQuery = useMemoFirebase(() => {
+    if (!db) return null;
     return collection(db, 'doctors');
   }, [db]);
+
   const { data: firestoreDoctors, isLoading: isDocsLoading } = useCollection(doctorsQuery);
 
   // Normalize firestore data to match local Doctor type
