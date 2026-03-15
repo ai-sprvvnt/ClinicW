@@ -22,9 +22,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { useUser } from '@/firebase';
 import type { Room, Doctor, Booking, AddBookingResult } from '@/lib/types';
 import { generateTimeSlots, formatMinutesToTime } from '@/lib/utils';
-import { Calendar as CalendarIcon, Clock, Loader2, Lightbulb } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, Loader2, Lightbulb, UserCircle } from 'lucide-react';
+import Link from 'next/link';
 
 const bookingFormSchema = z.object({
   doctorId: z.string().min(1, { message: 'Debe seleccionar un doctor.' }),
@@ -48,11 +50,13 @@ interface BookingModalProps {
 }
 
 export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: BookingModalProps) {
+  const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   const [view, setView] = useState<'form' | 'suggestions'>('form');
   const [suggestions, setSuggestions] = useState<{ startMin: number, endMin: number }[]>([]);
   const [conflictReason, setConflictReason] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
@@ -82,6 +86,15 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
   }, [isOpen, form]);
 
   async function onSubmit(data: BookingFormValues) {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Sesión requerida",
+        description: "Debe iniciar sesión para poder realizar una reserva.",
+      });
+      return;
+    }
+
     setIsLoading(true);
     const result = await onAddBooking({ ...data, roomId: room.id });
     setIsLoading(false);
@@ -110,6 +123,28 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
     form.setValue('endMin', suggestion.endMin, { shouldValidate: true });
     setView('form');
   };
+
+  if (!user && !isUserLoading && isOpen) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-headline">Acceso Restringido</DialogTitle>
+            <DialogDescription>Solo el personal autorizado puede realizar reservas.</DialogDescription>
+          </DialogHeader>
+          <div className="py-6 flex flex-col items-center gap-4 text-center">
+            <UserCircle className="h-12 w-12 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              No hemos detectado una sesión activa. Por favor, inicia sesión para continuar.
+            </p>
+            <Link href="/admin" className="w-full">
+              <Button className="w-full">Ir a Acceso Staff</Button>
+            </Link>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -146,7 +181,7 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Fecha</FormLabel>
-                  <Popover>
+                  <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                     <PopoverTrigger asChild>
                       <FormControl>
                         <Button variant={"outline"} className="pl-3 text-left font-normal">
@@ -156,7 +191,15 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
                       </FormControl>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                      <Calendar 
+                        mode="single" 
+                        selected={field.value} 
+                        onSelect={(date) => {
+                          field.onChange(date);
+                          setIsCalendarOpen(false);
+                        }} 
+                        initialFocus 
+                      />
                     </PopoverContent>
                   </Popover>
                   <FormMessage />

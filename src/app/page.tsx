@@ -12,7 +12,7 @@ import { collection } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 
 export default function Home() {
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const { bookings, addBooking, updateBookingStatus, isLoading: isBookingsLoading } = useBookingManager();
   const db = useFirestore();
   
@@ -65,7 +65,7 @@ export default function Home() {
     }, {} as Record<string, Booking[]>);
   }, [bookings]);
 
-  if (isBookingsLoading || isDocsLoading) {
+  if (isBookingsLoading || isDocsLoading || isUserLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
