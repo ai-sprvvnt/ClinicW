@@ -49,11 +49,9 @@ export function getRoomStatus(room: Room, bookings: Booking[], doctors: Doctor[]
 
 export function generateTimeSlots(date: Date, interval: number = 30): { value: number, label: string }[] {
   const slots = [];
-  const day = getDay(date);
-  // Weekdays 8 AM to 8 PM, Saturday 9 AM to 2 PM
-  const [startHour, endHour] = day >= 1 && day <= 5 ? [8, 20] : (day === 6 ? [9, 14] : [0, 0]);
-
-  if (startHour === 0) return [];
+  // Para el prototipo, permitimos citas de 8:00 AM a 8:00 PM todos los días
+  const startHour = 8;
+  const endHour = 20;
 
   for (let hour = startHour; hour < endHour; hour++) {
     for (let minute = 0; minute < 60; minute += interval) {

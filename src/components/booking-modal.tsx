@@ -25,7 +25,6 @@ import { useToast } from "@/hooks/use-toast";
 import type { Room, Doctor, Booking, AddBookingResult } from '@/lib/types';
 import { generateTimeSlots, formatMinutesToTime } from '@/lib/utils';
 import { Calendar as CalendarIcon, Clock, Loader2, Lightbulb } from 'lucide-react';
-import { automatedConflictResolution } from '@/ai/flows/automated-conflict-resolution';
 
 const bookingFormSchema = z.object({
   doctorId: z.string().min(1, { message: 'Debe seleccionar un doctor.' }),
@@ -59,6 +58,9 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
       date: new Date(),
+      doctorId: '',
+      startMin: 480, // 8:00 AM
+      endMin: 510, // 8:30 AM
     }
   });
 
@@ -67,7 +69,12 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
 
   useEffect(() => {
     if (isOpen) {
-      form.reset({ date: new Date(), doctorId: '', startMin: 0, endMin: 0 });
+      form.reset({ 
+        date: new Date(), 
+        doctorId: '', 
+        startMin: 480, 
+        endMin: 510 
+      });
       setView('form');
       setSuggestions([]);
       setIsLoading(false);
@@ -121,7 +128,7 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Doctor</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger><SelectValue placeholder="Seleccione un doctor" /></SelectTrigger>
                     </FormControl>
@@ -160,7 +167,7 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
               <FormField control={form.control} name="startMin" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Inicio</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                  <Select onValueChange={field.onChange} value={String(field.value)}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Hora" /></SelectTrigger></FormControl>
                     <SelectContent>{timeSlots.map(t => <SelectItem key={t.value} value={String(t.value)}>{t.label}</SelectItem>)}</SelectContent>
                   </Select><FormMessage />
@@ -169,7 +176,7 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
               <FormField control={form.control} name="endMin" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Fin</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                  <Select onValueChange={field.onChange} value={String(field.value)}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Hora" /></SelectTrigger></FormControl>
                     <SelectContent>{timeSlots.map(t => <SelectItem key={t.value} value={String(t.value)}>{t.label}</SelectItem>)}</SelectContent>
                   </Select><FormMessage />
