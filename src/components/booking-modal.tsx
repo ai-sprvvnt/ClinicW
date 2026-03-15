@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { format, startOfToday } from 'date-fns';
+import { format, startOfToday, isBefore } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { Button } from '@/components/ui/button';
@@ -57,6 +57,11 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
   const [conflictReason, setConflictReason] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [today, setToday] = useState<Date>(new Date());
+
+  useEffect(() => {
+    setToday(startOfToday());
+  }, []);
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
@@ -69,12 +74,12 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
   });
 
   const selectedDate = form.watch('date');
-  const timeSlots = React.useMemo(() => generateTimeSlots(selectedDate || new Date()), [selectedDate]);
+  const timeSlots = React.useMemo(() => generateTimeSlots(selectedDate || today), [selectedDate, today]);
 
   useEffect(() => {
     if (isOpen) {
       form.reset({ 
-        date: new Date(), 
+        date: today, 
         doctorId: '', 
         startMin: 480, 
         endMin: 510 
@@ -83,7 +88,7 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
       setSuggestions([]);
       setIsLoading(false);
     }
-  }, [isOpen, form]);
+  }, [isOpen, form, today]);
 
   async function onSubmit(data: BookingFormValues) {
     if (!user) {
@@ -124,7 +129,7 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
     setView('form');
   };
 
-  if (!user && !isUserLoading && isOpen) {
+  if (isOpen && !isUserLoading && !user) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="sm:max-w-md">
@@ -210,7 +215,7 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
                             setIsCalendarOpen(false);
                           }
                         }}
-                        disabled={{ before: startOfToday() }}
+                        disabled={{ before: today }}
                         initialFocus 
                       />
                     </PopoverContent>
@@ -241,7 +246,7 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
             </div>
             <DialogFooter className="pt-4">
               <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-              <Button type="submit" disabled={isLoading || !user} className="bg-primary hover:bg-primary/90">
+              <Button type="submit" disabled={isLoading || isUserLoading || !user} className="bg-primary hover:bg-primary/90">
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Guardar Reserva
               </Button>
