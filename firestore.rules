@@ -27,7 +27,8 @@ service cloud.firestore {
      * @description Rules for the User collection.
      */
     match /users/{userId} {
-      allow get, list: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
       allow create, update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow delete: if isAdmin();
     }
@@ -41,7 +42,7 @@ service cloud.firestore {
     }
 
     /**
-     * @description Clinic consulting rooms. Publicly readable.
+     * @description Clinic consulting rooms. Publicly readable for availability.
      */
     match /rooms/{roomId} {
       allow get, list: if true; 
@@ -49,7 +50,7 @@ service cloud.firestore {
     }
 
     /**
-     * @description Doctor registry. Publicly readable.
+     * @description Doctor registry. Publicly readable for identification.
      */
     match /doctors/{doctorId} {
       allow get, list: if true;
@@ -58,11 +59,11 @@ service cloud.firestore {
 
     /**
      * @description Appointment bookings.
-     * Accessible by staff (signed in) to view availability.
-     * Writable by admins or the creator/doctor assigned.
+     * Publicly readable so everyone can see if a room is occupied.
+     * Writable only by staff/admins.
      */
     match /bookings/{bookingId} {
-      allow get, list: if isSignedIn();
+      allow get, list: if true;
       allow create: if isSignedIn();
       allow update, delete: if isAdmin() || (isSignedIn() && (resource.data.doctorId == request.auth.uid || resource.data.createdBy == request.auth.uid));
     }
