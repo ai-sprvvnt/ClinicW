@@ -9,14 +9,14 @@ import type { Room, Booking, Doctor } from '@/lib/types';
 import { useBookingManager } from '@/hooks/use-booking-manager';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection } from 'firebase/firestore';
+import { Loader2 } from 'lucide-react';
 
 export default function Home() {
   const { user } = useUser();
-  const { bookings, addBooking, updateBookingStatus } = useBookingManager();
+  const { bookings, addBooking, updateBookingStatus, isLoading: isBookingsLoading } = useBookingManager();
   const db = useFirestore();
   
-  // Fetch real doctors from Firestore. We only query if the user is authenticated 
-  // to follow best practices, although rules now allow public read.
+  // Fetch real doctors from Firestore
   const doctorsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return collection(db, 'doctors');
@@ -24,7 +24,6 @@ export default function Home() {
 
   const { data: firestoreDoctors, isLoading: isDocsLoading } = useCollection(doctorsQuery);
 
-  // Normalize firestore data to match local Doctor type
   const doctors = useMemo(() => {
     if (!firestoreDoctors) return [];
     return firestoreDoctors.map(d => ({
@@ -40,11 +39,9 @@ export default function Home() {
     room: null,
   });
 
-  // Inicializamos con null para evitar discrepancias de hidratación entre servidor y cliente
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
   useEffect(() => {
-    // Establecemos la hora real solo después de que el componente se ha montado en el cliente
     setCurrentTime(new Date());
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
@@ -67,6 +64,14 @@ export default function Home() {
       return acc;
     }, {} as Record<string, Booking[]>);
   }, [bookings]);
+
+  if (isBookingsLoading || isDocsLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen">

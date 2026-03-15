@@ -34,7 +34,6 @@ service cloud.firestore {
 
     /**
      * @description Marker collection for global admins.
-     * A user can always check their own status.
      */
     match /roles_admin/{adminId} {
       allow get: if isSignedIn() && (request.auth.uid == adminId || isAdmin());
@@ -42,7 +41,7 @@ service cloud.firestore {
     }
 
     /**
-     * @description Clinic consulting rooms. Publicly readable for the dashboard.
+     * @description Clinic consulting rooms. Publicly readable.
      */
     match /rooms/{roomId} {
       allow get, list: if true; 
@@ -50,7 +49,7 @@ service cloud.firestore {
     }
 
     /**
-     * @description Doctor registry. Publicly readable for the directory.
+     * @description Doctor registry. Publicly readable.
      */
     match /doctors/{doctorId} {
       allow get, list: if true;
@@ -59,11 +58,13 @@ service cloud.firestore {
 
     /**
      * @description Appointment bookings.
+     * Accessible by staff (signed in) to view availability.
+     * Writable by admins or the creator/doctor assigned.
      */
     match /bookings/{bookingId} {
-      allow get: if isAdmin() || (isSignedIn() && resource.data.doctorId == request.auth.uid);
-      allow list: if isAdmin() || (isSignedIn() && request.query.limit <= 100);
-      allow create, update, delete: if isAdmin();
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin() || (isSignedIn() && (resource.data.doctorId == request.auth.uid || resource.data.createdBy == request.auth.uid));
     }
   }
 }
