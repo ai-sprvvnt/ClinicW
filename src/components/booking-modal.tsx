@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { format } from 'date-fns';
+import { format, startOfToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from '@/firebase';
 import type { Room, Doctor, Booking, AddBookingResult } from '@/lib/types';
-import { generateTimeSlots, formatMinutesToTime } from '@/lib/utils';
+import { generateTimeSlots, formatMinutesToTime, cn } from '@/lib/utils';
 import { Calendar as CalendarIcon, Clock, Loader2, Lightbulb, UserCircle } from 'lucide-react';
 import Link from 'next/link';
 
@@ -135,7 +135,7 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
           <div className="py-6 flex flex-col items-center gap-4 text-center">
             <UserCircle className="h-12 w-12 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              No hemos detectado una sesión activa. Por favor, inicia sesión para continuar.
+              No hemos detectado una sesión activa o el permiso necesario. Por favor, inicia sesión para continuar.
             </p>
             <Link href="/admin" className="w-full">
               <Button className="w-full">Ir a Acceso Staff</Button>
@@ -184,8 +184,18 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
                   <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                     <PopoverTrigger asChild>
                       <FormControl>
-                        <Button variant={"outline"} className="pl-3 text-left font-normal">
-                          {field.value ? format(field.value, 'PPP', { locale: es }) : <span>Seleccione una fecha</span>}
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full pl-3 text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          {field.value ? (
+                            format(field.value, 'PPP', { locale: es })
+                          ) : (
+                            <span>Seleccione una fecha</span>
+                          )}
                           <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
                       </FormControl>
@@ -195,9 +205,12 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
                         mode="single" 
                         selected={field.value} 
                         onSelect={(date) => {
-                          field.onChange(date);
-                          setIsCalendarOpen(false);
-                        }} 
+                          if (date) {
+                            field.onChange(date);
+                            setIsCalendarOpen(false);
+                          }
+                        }}
+                        disabled={{ before: startOfToday() }}
                         initialFocus 
                       />
                     </PopoverContent>
@@ -226,9 +239,9 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
                 </FormItem>
               )} />
             </div>
-            <DialogFooter>
+            <DialogFooter className="pt-4">
               <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-              <Button type="submit" disabled={isLoading} className="bg-primary hover:bg-primary/90">
+              <Button type="submit" disabled={isLoading || !user} className="bg-primary hover:bg-primary/90">
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Guardar Reserva
               </Button>
