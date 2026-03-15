@@ -22,10 +22,11 @@ interface RoomCardProps {
   doctors: Doctor[];
   currentTime: Date | null;
   onBook: () => void;
+  onViewAgenda: () => void;
   onUpdateStatus: (bookingId: string, status: BookingStatus) => void;
 }
 
-export const RoomCard = ({ room, bookings, doctors, currentTime, onBook, onUpdateStatus }: RoomCardProps) => {
+export const RoomCard = ({ room, bookings, doctors, currentTime, onBook, onViewAgenda, onUpdateStatus }: RoomCardProps) => {
   // Para evitar errores de hidratación, usamos una fecha base estable si currentTime es null (durante SSR)
   const now = currentTime || new Date(2025, 0, 1, 12, 0);
   const statusInfo = getRoomStatus(room, bookings, doctors, now);
@@ -75,21 +76,21 @@ export const RoomCard = ({ room, bookings, doctors, currentTime, onBook, onUpdat
         </div>
       </CardContent>
       <CardFooter className="bg-muted/50 p-4 flex gap-2 justify-end">
-        <Button variant="outline" size="sm" className="font-bold" disabled>
-          <FileText/> Ver agenda
+        <Button variant="outline" size="sm" className="font-bold" onClick={onViewAgenda}>
+          <FileText className="mr-2 h-4 w-4" /> Ver agenda
         </Button>
         {canCheckIn && (
           <Button variant="outline" size="sm" className="font-bold" onClick={() => onUpdateStatus(booking.id, 'in_use')}>
-            <LogIn /> Check-in
+            <LogIn className="mr-2 h-4 w-4" /> Check-in
           </Button>
         )}
         {canCheckOut && (
           <Button variant="outline" size="sm" className="font-bold" onClick={() => onUpdateStatus(booking.id, 'done')}>
-            <LogOut /> Check-out
+            <LogOut className="mr-2 h-4 w-4" /> Check-out
           </Button>
         )}
         <Button onClick={onBook} size="sm" className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold">
-          <Calendar /> Apartar
+          <Calendar className="mr-2 h-4 w-4" /> Apartar
         </Button>
       </CardFooter>
     </Card>

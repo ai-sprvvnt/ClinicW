@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Header } from '@/components/header';
 import { RoomCard } from '@/components/room-card';
 import { BookingModal } from '@/components/booking-modal';
+import { AgendaModal } from '@/components/agenda-modal';
 import { ROOMS } from '@/lib/mock-data';
 import type { Room, Booking, Doctor } from '@/lib/types';
 import { useBookingManager } from '@/hooks/use-booking-manager';
@@ -39,6 +40,11 @@ export default function Home() {
     room: null,
   });
 
+  const [agendaState, setAgendaState] = useState<{ open: boolean; room: Room | null }>({
+    open: false,
+    room: null,
+  });
+
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -53,6 +59,14 @@ export default function Home() {
 
   const handleCloseModal = () => {
     setModalState({ open: false, room: null });
+  };
+
+  const handleOpenAgenda = (room: Room) => {
+    setAgendaState({ open: true, room });
+  };
+
+  const handleCloseAgenda = () => {
+    setAgendaState({ open: false, room: null });
   };
 
   const bookingsByRoom = useMemo(() => {
@@ -85,12 +99,14 @@ export default function Home() {
               bookings={bookingsByRoom[room.id] || []}
               doctors={doctors}
               onBook={() => handleOpenModal(room)}
+              onViewAgenda={() => handleOpenAgenda(room)}
               onUpdateStatus={updateBookingStatus}
               currentTime={currentTime}
             />
           ))}
         </div>
       </main>
+      
       {modalState.room && (
         <BookingModal
           isOpen={modalState.open}
@@ -99,6 +115,16 @@ export default function Home() {
           doctors={doctors}
           bookings={bookingsByRoom[modalState.room.id] || []}
           onAddBooking={addBooking}
+        />
+      )}
+
+      {agendaState.room && (
+        <AgendaModal
+          isOpen={agendaState.open}
+          onClose={handleCloseAgenda}
+          room={agendaState.room}
+          doctors={doctors}
+          bookings={bookingsByRoom[agendaState.room.id] || []}
         />
       )}
     </div>
