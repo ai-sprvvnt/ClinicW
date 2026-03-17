@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -56,20 +56,15 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
   const [suggestions, setSuggestions] = useState<{ startMin: number, endMin: number }[]>([]);
   const [conflictReason, setConflictReason] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [now, setNow] = useState<Date | null>(null);
-  const [today, setToday] = useState<Date>(new Date());
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
-  useEffect(() => {
-    const todayDate = startOfToday();
-    setToday(todayDate);
-    setNow(new Date());
-  }, [isOpen]);
+  // Memoize today to prevent infinite render loops in useEffect
+  const today = useMemo(() => startOfToday(), []);
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
-      date: new Date(),
+      date: today,
       doctorId: '',
       startMin: 0,
       endMin: 0,
@@ -77,16 +72,22 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
   });
 
   const selectedDate = form.watch('date');
-  const timeSlots = React.useMemo(() => {
-    if (!selectedDate || !now) return [];
-    return generateTimeSlots(selectedDate, 30, now);
-  }, [selectedDate, now]);
+
+  // timeSlots calculation depends on selectedDate and current actual time
+  const timeSlots = useMemo(() => {
+    if (!selectedDate) return [];
+    // We use a new Date() here inside the factory which is fine as it's triggered by selectedDate change
+    return generateTimeSlots(selectedDate, 30, new Date());
+  }, [selectedDate]);
 
   useEffect(() => {
-    if (isOpen && now) {
-      const slots = generateTimeSlots(today, 30, now);
-      const firstAvailable = slots.length > 0 ? slots[0].value : 480;
-      const secondAvailable = slots.length > 1 ? slots[1].value : firstAvailable + 30;
+    if (isOpen) {
+      // Logic to find sensible default slots when modal opens
+      const now = new Date();
+      const slotsForToday = generateTimeSlots(today, 30, now);
+      
+      const firstAvailable = slotsForToday.length > 0 ? slotsForToday[0].value : 480; // 8:00 AM
+      const secondAvailable = slotsForToday.length > 1 ? slotsForToday[1].value : firstAvailable + 60; // +1 hour
 
       form.reset({ 
         date: today, 
@@ -98,7 +99,9 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
       setSuggestions([]);
       setIsLoading(false);
     }
-  }, [isOpen, form, today, now]);
+    // Only run when isOpen transitions to true to avoid loops with form internal state
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   async function onSubmit(data: BookingFormValues) {
     if (!user) {
@@ -178,7 +181,7 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Doctor</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
                     <FormControl>
                       <SelectTrigger><SelectValue placeholder="Seleccione un doctor" /></SelectTrigger>
                     </FormControl>
@@ -196,7 +199,7 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Fecha</FormLabel>
-                  <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                  <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                     <PopoverTrigger asChild>
                       <FormControl>
                         <Button
@@ -220,10 +223,8 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
                         mode="single" 
                         selected={field.value} 
                         onSelect={(date) => {
-                          if (date) {
-                            field.onChange(date);
-                            setIsCalendarOpen(false);
-                          }
+                          field.onChange(date);
+                          setCalendarOpen(false);
                         }}
                         disabled={{ before: today }}
                         initialFocus 
