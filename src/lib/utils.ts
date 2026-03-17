@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { isWithinInterval, format, getDay, getMinutes, getHours, set } from 'date-fns';
+import { isWithinInterval, format, set, isSameDay, getHours, getMinutes } from 'date-fns';
 import type { Booking, Room, RoomStatusInfo, Doctor } from './types';
 
 export function cn(...inputs: ClassValue[]) {
@@ -47,15 +47,27 @@ export function getRoomStatus(room: Room, bookings: Booking[], doctors: Doctor[]
   };
 }
 
-export function generateTimeSlots(date: Date, interval: number = 30): { value: number, label: string }[] {
+/**
+ * Genera slots de tiempo para un día específico.
+ * Si se proporciona `now` y el día es hoy, filtra las horas pasadas.
+ */
+export function generateTimeSlots(date: Date, interval: number = 30, now?: Date): { value: number, label: string }[] {
   const slots = [];
-  // Para el prototipo, permitimos citas de 8:00 AM a 8:00 PM todos los días
   const startHour = 8;
   const endHour = 20;
+
+  const isToday = now ? isSameDay(date, now) : false;
+  const currentTotalMinutes = now ? getHours(now) * 60 + getMinutes(now) : 0;
 
   for (let hour = startHour; hour < endHour; hour++) {
     for (let minute = 0; minute < 60; minute += interval) {
       const totalMinutes = hour * 60 + minute;
+      
+      // Si es hoy, solo incluir slots que sean en el futuro
+      if (isToday && totalMinutes <= currentTotalMinutes) {
+        continue;
+      }
+
       const time = set(date, { hours: hour, minutes: minute, seconds: 0, milliseconds: 0 });
       slots.push({
         value: totalMinutes,

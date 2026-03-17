@@ -57,38 +57,48 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
   const [conflictReason, setConflictReason] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [now, setNow] = useState<Date | null>(null);
   const [today, setToday] = useState<Date>(new Date());
 
   useEffect(() => {
-    setToday(startOfToday());
-  }, []);
+    const todayDate = startOfToday();
+    setToday(todayDate);
+    setNow(new Date());
+  }, [isOpen]);
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
       date: new Date(),
       doctorId: '',
-      startMin: 480, // 8:00 AM
-      endMin: 510, // 8:30 AM
+      startMin: 0,
+      endMin: 0,
     }
   });
 
   const selectedDate = form.watch('date');
-  const timeSlots = React.useMemo(() => generateTimeSlots(selectedDate || today), [selectedDate, today]);
+  const timeSlots = React.useMemo(() => {
+    if (!selectedDate || !now) return [];
+    return generateTimeSlots(selectedDate, 30, now);
+  }, [selectedDate, now]);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && now) {
+      const slots = generateTimeSlots(today, 30, now);
+      const firstAvailable = slots.length > 0 ? slots[0].value : 480;
+      const secondAvailable = slots.length > 1 ? slots[1].value : firstAvailable + 30;
+
       form.reset({ 
         date: today, 
         doctorId: '', 
-        startMin: 480, 
-        endMin: 510 
+        startMin: firstAvailable, 
+        endMin: secondAvailable 
       });
       setView('form');
       setSuggestions([]);
       setIsLoading(false);
     }
-  }, [isOpen, form, today]);
+  }, [isOpen, form, today, now]);
 
   async function onSubmit(data: BookingFormValues) {
     if (!user) {
@@ -230,7 +240,10 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
                   <FormLabel>Inicio</FormLabel>
                   <Select onValueChange={field.onChange} value={String(field.value)}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Hora" /></SelectTrigger></FormControl>
-                    <SelectContent>{timeSlots.map(t => <SelectItem key={t.value} value={String(t.value)}>{t.label}</SelectItem>)}</SelectContent>
+                    <SelectContent>
+                      {timeSlots.map(t => <SelectItem key={t.value} value={String(t.value)}>{t.label}</SelectItem>)}
+                      {timeSlots.length === 0 && <SelectItem value="0" disabled>Sin horarios disponibles</SelectItem>}
+                    </SelectContent>
                   </Select><FormMessage />
                 </FormItem>
               )} />
@@ -239,14 +252,17 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
                   <FormLabel>Fin</FormLabel>
                   <Select onValueChange={field.onChange} value={String(field.value)}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Hora" /></SelectTrigger></FormControl>
-                    <SelectContent>{timeSlots.map(t => <SelectItem key={t.value} value={String(t.value)}>{t.label}</SelectItem>)}</SelectContent>
+                    <SelectContent>
+                      {timeSlots.map(t => <SelectItem key={t.value} value={String(t.value)}>{t.label}</SelectItem>)}
+                      {timeSlots.length === 0 && <SelectItem value="0" disabled>Sin horarios disponibles</SelectItem>}
+                    </SelectContent>
                   </Select><FormMessage />
                 </FormItem>
               )} />
             </div>
             <DialogFooter className="pt-4">
               <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-              <Button type="submit" disabled={isLoading || isUserLoading || !user} className="bg-primary hover:bg-primary/90">
+              <Button type="submit" disabled={isLoading || isUserLoading || !user || timeSlots.length === 0} className="bg-primary hover:bg-primary/90">
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Guardar Reserva
               </Button>
