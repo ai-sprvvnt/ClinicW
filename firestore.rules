@@ -21,6 +21,19 @@ service cloud.firestore {
       );
     }
 
+    function doctorRole() {
+      return get(/databases/$(database)/documents/roles_doctor/$(request.auth.uid));
+    }
+
+    function isDoctor() {
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_doctor/$(request.auth.uid));
+    }
+
+    function clinicMatch(data) {
+      // Allow legacy docs without clinicId during migration.
+      return data.clinicId == null || data.clinicId == doctorRole().data.clinicId;
+    }
+
     // --- Collection Rules ---
 
     /**
@@ -42,10 +55,18 @@ service cloud.firestore {
     }
 
     /**
+     * @description Marker collection for doctors.
+     */
+    match /roles_doctor/{doctorUid} {
+      allow get: if isSignedIn() && (request.auth.uid == doctorUid || isAdmin());
+      allow list, create, update, delete: if isAdmin();
+    }
+
+    /**
      * @description Clinic consulting rooms. Publicly readable for availability.
      */
     match /rooms/{roomId} {
-      allow get, list: if true; 
+      allow get, list: if isAdmin() || (isDoctor() && clinicMatch(resource.data)); 
       allow create, update, delete: if isAdmin();
     }
 
@@ -53,7 +74,7 @@ service cloud.firestore {
      * @description Doctor registry. Publicly readable for identification.
      */
     match /doctors/{doctorId} {
-      allow get, list: if true;
+      allow get, list: if isAdmin() || (isDoctor() && clinicMatch(resource.data));
       allow create, update, delete: if isAdmin();
     }
 
@@ -63,9 +84,13 @@ service cloud.firestore {
      * Writable only by staff/admins.
      */
     match /bookings/{bookingId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin() || (isSignedIn() && (resource.data.doctorId == request.auth.uid || resource.data.createdBy == request.auth.uid));
+      allow get, list: if isAdmin() || (
+        isDoctor() &&
+        clinicMatch(resource.data) &&
+        (doctorRole().data.canViewAllBookings == true || resource.data.doctorId == doctorRole().data.doctorId)
+      );
+      // Writes must go through server (Functions).
+      allow create, update, delete: if isAdmin();
     }
   }
 }

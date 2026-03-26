@@ -40,6 +40,14 @@ next-env.d.ts
 .genkit/*
 .env*
 
+# local databases
+prisma/dev.db
+*.db
+
+# local workspace artifacts
+.idx
+.modified
+
 # firebase
 firebase-debug.log
 firestore-debug.log

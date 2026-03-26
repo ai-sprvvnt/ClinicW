@@ -14,15 +14,19 @@ export interface Room {
 
 export interface Doctor {
   id: string;
-  name: string;
+  userId?: string;
+  name?: string;
+  displayName?: string;
+  email?: string | null;
   specialty: string;
   avatarUrl: string;
 }
 
 export interface Booking {
   id: string;
+  clinicId?: string;
   roomId: string;
-  doctorId: string;
+  doctorId: string | null;
   dateKey: string; // YYYY-MM-DD
   startAt: Date;
   endAt: Date;

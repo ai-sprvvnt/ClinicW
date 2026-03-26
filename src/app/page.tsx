@@ -1,39 +1,24 @@
-'use client';
+﻿'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Header } from '@/components/header';
 import { RoomCard } from '@/components/room-card';
 import { BookingModal } from '@/components/booking-modal';
 import { AgendaModal } from '@/components/agenda-modal';
-import { ROOMS } from '@/lib/mock-data';
 import type { Room, Booking, Doctor } from '@/lib/types';
 import { useBookingManager } from '@/hooks/use-booking-manager';
-import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useDoctors } from '@/hooks/use-doctors';
+import { useRooms } from '@/hooks/use-rooms';
+import { useSessionUser } from '@/hooks/use-session-user';
+import { useSettings } from '@/hooks/use-settings';
 import { Loader2 } from 'lucide-react';
 
 export default function Home() {
-  const { user, isUserLoading } = useUser();
+  const { user, isLoading: isUserLoading } = useSessionUser();
   const { bookings, addBooking, updateBookingStatus, isLoading: isBookingsLoading } = useBookingManager();
-  const db = useFirestore();
-  
-  // Fetch real doctors from Firestore
-  const doctorsQuery = useMemoFirebase(() => {
-    if (!db) return null;
-    return collection(db, 'doctors');
-  }, [db]);
-
-  const { data: firestoreDoctors, isLoading: isDocsLoading } = useCollection(doctorsQuery);
-
-  const doctors = useMemo(() => {
-    if (!firestoreDoctors) return [];
-    return firestoreDoctors.map(d => ({
-      id: d.id,
-      name: d.displayName,
-      specialty: d.specialty,
-      avatarUrl: d.avatarUrl
-    })) as Doctor[];
-  }, [firestoreDoctors]);
+  const { doctors, isLoading: isDocsLoading } = useDoctors();
+  const { rooms, isLoading: isRoomsLoading } = useRooms();
+  const { branding } = useSettings();
 
   const [modalState, setModalState] = useState<{ open: boolean; room: Room | null }>({
     open: false,
@@ -45,30 +30,6 @@ export default function Home() {
     room: null,
   });
 
-  const [currentTime, setCurrentTime] = useState<Date | null>(null);
-
-  useEffect(() => {
-    setCurrentTime(new Date());
-    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const handleOpenModal = (room: Room) => {
-    setModalState({ open: true, room });
-  };
-
-  const handleCloseModal = () => {
-    setModalState({ open: false, room: null });
-  };
-
-  const handleOpenAgenda = (room: Room) => {
-    setAgendaState({ open: true, room });
-  };
-
-  const handleCloseAgenda = () => {
-    setAgendaState({ open: false, room: null });
-  };
-
   const bookingsByRoom = useMemo(() => {
     return bookings.reduce((acc, booking) => {
       if (!acc[booking.roomId]) {
@@ -79,7 +40,7 @@ export default function Home() {
     }, {} as Record<string, Booking[]>);
   }, [bookings]);
 
-  if (isBookingsLoading || isDocsLoading || isUserLoading) {
+  if (isBookingsLoading || isDocsLoading || isUserLoading || isRoomsLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -92,16 +53,16 @@ export default function Home() {
       <Header />
       <main className="flex-1 container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-          {ROOMS.map(room => (
+          {rooms.map(room => (
             <RoomCard
               key={room.id}
               room={room}
               bookings={bookingsByRoom[room.id] || []}
-              doctors={doctors}
-              onBook={() => handleOpenModal(room)}
-              onViewAgenda={() => handleOpenAgenda(room)}
+              doctors={doctors as Doctor[]}
+              onBook={() => setModalState({ open: true, room })}
+              onViewAgenda={() => setAgendaState({ open: true, room })}
               onUpdateStatus={updateBookingStatus}
-              currentTime={currentTime}
+              currentTime={new Date()}
             />
           ))}
         </div>
@@ -110,9 +71,9 @@ export default function Home() {
       {modalState.room && (
         <BookingModal
           isOpen={modalState.open}
-          onClose={handleCloseModal}
+          onClose={() => setModalState({ open: false, room: null })}
           room={modalState.room}
-          doctors={doctors}
+          doctors={doctors as Doctor[]}
           bookings={bookingsByRoom[modalState.room.id] || []}
           onAddBooking={addBooking}
         />
@@ -121,10 +82,11 @@ export default function Home() {
       {agendaState.room && (
         <AgendaModal
           isOpen={agendaState.open}
-          onClose={handleCloseAgenda}
+          onClose={() => setAgendaState({ open: false, room: null })}
           room={agendaState.room}
-          doctors={doctors}
+          doctors={doctors as Doctor[]}
           bookings={bookingsByRoom[agendaState.room.id] || []}
+          onUpdateStatus={updateBookingStatus}
         />
       )}
     </div>

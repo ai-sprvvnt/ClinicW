@@ -73,7 +73,35 @@ const automatedConflictResolutionFlow = ai.defineFlow(
     outputSchema: AutomatedConflictResolutionOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    return output!;
+    // Mock logic for when API key is missing or we want "test data" mode
+    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === '') {
+      console.log('GEMINI_API_KEY not found, using mock conflict resolution.');
+      
+      // Basic mock suggestion: 1 hour later
+      const mockSuggestions = [
+        { startMin: input.startMin + 60, endMin: input.endMin + 60 },
+        { startMin: input.startMin + 120, endMin: input.endMin + 120 },
+      ];
+
+      return {
+        hasConflict: true,
+        suggestedSlots: mockSuggestions,
+        reason: "Modo de simulación: El horario seleccionado está ocupado en nuestro entorno de prueba.",
+      };
+    }
+
+    try {
+      const {output} = await prompt(input);
+      return output!;
+    } catch (error) {
+      console.error('Error in Genkit flow:', error);
+      return {
+        hasConflict: true,
+        suggestedSlots: [
+          { startMin: input.startMin + 60, endMin: input.endMin + 60 }
+        ],
+        reason: "Error en el servicio de IA. Usando sugerencia de respaldo.",
+      };
+    }
   }
 );

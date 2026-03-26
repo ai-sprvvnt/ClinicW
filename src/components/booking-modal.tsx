@@ -22,7 +22,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { useUser } from '@/firebase';
+import { useSessionUser } from '@/hooks/use-session-user';
 import type { Room, Doctor, Booking, AddBookingResult } from '@/lib/types';
 import { generateTimeSlots, formatMinutesToTime, cn } from '@/lib/utils';
 import { Calendar as CalendarIcon, Clock, Loader2, Lightbulb, UserCircle } from 'lucide-react';
@@ -47,10 +47,11 @@ interface BookingModalProps {
   doctors: Doctor[];
   bookings: Booking[];
   onAddBooking: (data: any) => Promise<AddBookingResult>;
+  lockedDoctorId?: string;
 }
 
-export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: BookingModalProps) {
-  const { user, isUserLoading } = useUser();
+export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking, lockedDoctorId }: BookingModalProps) {
+  const { user, isLoading: isUserLoading } = useSessionUser();
   const { toast } = useToast();
   const [view, setView] = useState<'form' | 'suggestions'>('form');
   const [suggestions, setSuggestions] = useState<{ startMin: number, endMin: number }[]>([]);
@@ -59,6 +60,7 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
   const [calendarOpen, setCalendarOpen] = useState(false);
 
   // Memoize today to prevent infinite render loops in useEffect
+  // Use a stable reference that updates if the day actually changes
   const today = useMemo(() => startOfToday(), []);
 
   const form = useForm<BookingFormValues>({
@@ -72,6 +74,7 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
   });
 
   const selectedDate = form.watch('date');
+  const doctorOptions = lockedDoctorId ? doctors.filter(d => d.id === lockedDoctorId) : doctors;
 
   // timeSlots calculation depends on selectedDate and current actual time
   const timeSlots = useMemo(() => {
@@ -91,7 +94,7 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
 
       form.reset({ 
         date: today, 
-        doctorId: '', 
+        doctorId: lockedDoctorId || '', 
         startMin: firstAvailable, 
         endMin: secondAvailable 
       });
@@ -181,12 +184,12 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Doctor</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                  <Select onValueChange={field.onChange} value={field.value || ""} disabled={!!lockedDoctorId}>
                     <FormControl>
                       <SelectTrigger><SelectValue placeholder="Seleccione un doctor" /></SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {doctors.map(doc => <SelectItem key={doc.id} value={doc.id}>{doc.name}</SelectItem>)}
+                      {doctorOptions.map(doc => <SelectItem key={doc.id} value={doc.id}>{doc.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -199,7 +202,7 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Fecha</FormLabel>
-                  <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                  <Popover open={calendarOpen} onOpenChange={setCalendarOpen} modal>
                     <PopoverTrigger asChild>
                       <FormControl>
                         <Button
@@ -218,13 +221,19 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking }: B
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
+                    <PopoverContent 
+                      className="w-auto p-0 z-[60]" 
+                      align="start"
+                      onInteractOutside={(e) => e.preventDefault()}
+                    >
                       <Calendar 
                         mode="single" 
                         selected={field.value} 
                         onSelect={(date) => {
-                          field.onChange(date);
-                          setCalendarOpen(false);
+                          if (date) {
+                            field.onChange(date);
+                            setCalendarOpen(false);
+                          }
                         }}
                         disabled={{ before: today }}
                         initialFocus 

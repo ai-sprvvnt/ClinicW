@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -15,9 +15,11 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Clock, Calendar, User, CheckCircle2, Timer, Ban } from 'lucide-react';
-import type { Room, Booking, Doctor } from '@/lib/types';
+import { Clock, Calendar, CheckCircle2, Timer, Ban } from 'lucide-react';
+import type { Room, Booking, Doctor, BookingStatus } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { useSessionUser } from '@/hooks/use-session-user';
+import { useToast } from '@/hooks/use-toast';
 
 interface AgendaModalProps {
   isOpen: boolean;
@@ -25,10 +27,47 @@ interface AgendaModalProps {
   room: Room;
   bookings: Booking[];
   doctors: Doctor[];
+  onUpdateStatus: (bookingId: string, status: BookingStatus) => Promise<void> | void;
 }
 
-export function AgendaModal({ isOpen, onClose, room, bookings, doctors }: AgendaModalProps) {
-  const sortedBookings = [...bookings].sort((a, b) => a.startMin - b.startMin);
+export function AgendaModal({ isOpen, onClose, room, bookings, doctors, onUpdateStatus }: AgendaModalProps) {
+  const { user } = useSessionUser();
+  const { toast } = useToast();
+  const [isCancellingId, setIsCancellingId] = useState<string | null>(null);
+  const now = new Date();
+  const sortedBookings = [...bookings]
+    .filter(b => !['cancelled', 'done'].includes(b.status) && b.endAt > now)
+    .sort((a, b) => a.startMin - b.startMin);
+
+  const sessionDoctor = useMemo(() => {
+    if (!user || user.role !== 'DOCTOR') return null;
+    return doctors.find(d => d.userId === user.id) || null;
+  }, [doctors, user]);
+
+  const canCancelBooking = (booking: Booking) => {
+    if (!user) return false;
+    if (user.role === 'ADMIN') return true;
+    return !!sessionDoctor && booking.doctorId === sessionDoctor.id;
+  };
+
+  const handleCancel = async (booking: Booking) => {
+    setIsCancellingId(booking.id);
+    try {
+      await onUpdateStatus(booking.id, 'cancelled');
+      toast({
+        title: 'Reserva cancelada',
+        description: 'La reserva fue cancelada correctamente.',
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'No se pudo cancelar',
+        description: 'Intente de nuevo.',
+      });
+    } finally {
+      setIsCancellingId(null);
+    }
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -67,7 +106,7 @@ export function AgendaModal({ isOpen, onClose, room, bookings, doctors }: Agenda
           <div className="space-y-4 py-4">
             {sortedBookings.length > 0 ? (
               sortedBookings.map((booking) => {
-                const doctor = doctors.find((d) => d.id === booking.doctorId);
+                const doctor = booking.doctorId ? doctors.find((d) => d.id === booking.doctorId) : undefined;
                 return (
                   <div 
                     key={booking.id} 
@@ -103,6 +142,18 @@ export function AgendaModal({ isOpen, onClose, room, bookings, doctors }: Agenda
                           {getStatusLabel(booking.status)}
                         </span>
                       </div>
+                      {canCancelBooking(booking) && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2 text-xs"
+                          disabled={isCancellingId === booking.id}
+                          onClick={() => handleCancel(booking)}
+                        >
+                          {isCancellingId === booking.id ? 'Cancelando...' : 'Cancelar'}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );

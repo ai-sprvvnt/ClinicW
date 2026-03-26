@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { isWithinInterval, format, set, isSameDay, getHours, getMinutes } from 'date-fns';
+import { isWithinInterval, format, set, isSameDay, getHours, getMinutes, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import type { Booking, Room, RoomStatusInfo, Doctor } from './types';
 
 export function cn(...inputs: ClassValue[]) {
@@ -10,7 +10,11 @@ export function cn(...inputs: ClassValue[]) {
 export function getRoomStatus(room: Room, bookings: Booking[], doctors: Doctor[], now: Date): RoomStatusInfo {
   const todayKey = format(now, 'yyyy-MM-dd');
   const todayBookings = bookings
-    .filter(b => b.dateKey === todayKey && !['cancelled', 'done'].includes(b.status))
+    .filter(b => 
+      b.dateKey === todayKey && 
+      !['cancelled', 'done'].includes(b.status) &&
+      b.endAt > now
+    )
     .sort((a, b) => a.startAt.getTime() - b.startAt.getTime());
 
   const currentBooking = todayBookings.find(b =>
@@ -18,7 +22,7 @@ export function getRoomStatus(room: Room, bookings: Booking[], doctors: Doctor[]
   );
 
   if (currentBooking) {
-    const doctor = doctors.find(d => d.id === currentBooking.doctorId);
+    const doctor = currentBooking.doctorId ? (doctors.find(d => d.id === currentBooking.doctorId) || null) : null;
     return {
       status: 'Ocupado',
       booking: currentBooking,
@@ -30,7 +34,7 @@ export function getRoomStatus(room: Room, bookings: Booking[], doctors: Doctor[]
   const nextBooking = todayBookings.find(b => b.startAt > now && ['reserved', 'confirmed'].includes(b.status));
 
   if (nextBooking) {
-    const doctor = doctors.find(d => d.id === nextBooking.doctorId);
+    const doctor = nextBooking.doctorId ? (doctors.find(d => d.id === nextBooking.doctorId) || null) : null;
     return {
       status: 'Apartado',
       booking: nextBooking,
@@ -92,3 +96,60 @@ export const formatMinutesToTime = (minutes: number): string => {
   const m = minutes % 60;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
+
+/**
+ * Genera y descarga un archivo CSV a partir de un array de objetos.
+ */
+export function exportToCSV(data: any[], filename: string) {
+  if (data.length === 0) return;
+
+  const headers = Object.keys(data[0]);
+  const csvContent = [
+    headers.join(','),
+    ...data.map(row => 
+      headers.map(header => {
+        const value = row[header];
+        // Escapar comas y comillas
+        const stringValue = value === null || value === undefined ? '' : String(value);
+        return `"${stringValue.replace(/"/g, '""')}"`;
+      }).join(',')
+    )
+  ].join('\n');
+
+  const baseName = typeof filename === "string" ? filename.trim() : "";
+  const safeBaseName = baseName.length > 0 ? baseName : "reporte.csv";
+  const withExtension = safeBaseName.toLowerCase().endsWith(".csv")
+    ? safeBaseName
+    : `${safeBaseName}.csv`;
+  const sanitizedName = withExtension.replace(/[\\/:*?"<>|]+/g, "_");
+  const contentWithBom = "\uFEFF" + csvContent;
+
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = '/api/export-csv';
+  form.enctype = 'multipart/form-data';
+  form.style.display = 'none';
+
+  const contentInput = document.createElement('input');
+  contentInput.type = 'hidden';
+  contentInput.name = 'content';
+  contentInput.value = contentWithBom;
+  form.appendChild(contentInput);
+
+  const filenameInput = document.createElement('input');
+  filenameInput.type = 'hidden';
+  filenameInput.name = 'filename';
+  filenameInput.value = sanitizedName;
+  form.appendChild(filenameInput);
+
+  document.body.appendChild(form);
+  form.submit();
+
+  setTimeout(() => {
+    if (document.body.contains(form)) {
+      document.body.removeChild(form);
+    }
+  }, 1000);
+}
+
+export { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, format };
