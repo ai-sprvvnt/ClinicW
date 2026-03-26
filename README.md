@@ -8,6 +8,9 @@ Recomendaciones:
 - Mantener nombres simples y sin espacios.
 - Si agregas o cambias imágenes, recarga la app para verlas en la biblioteca.
 
+## Licencia
+MIT. Ver `LICENSE`.
+
 ## Variables de entorno
 Crea un archivo `.env` en la raíz con lo siguiente (ajusta según tu entorno):
 
