@@ -1,3 +1,5 @@
+import { requireUser } from "@/lib/api-auth";
+
 function sanitizeFilename(input: string | null): string {
   const baseName = typeof input === "string" ? input.trim() : "";
   const safeBaseName = baseName.length > 0 ? baseName : "reporte.csv";
@@ -8,6 +10,9 @@ function sanitizeFilename(input: string | null): string {
 }
 
 export async function POST(req: Request) {
+  const { response } = await requireUser();
+  if (response) return response;
+
   try {
     const formData = await req.formData();
     const content = formData.get("content");

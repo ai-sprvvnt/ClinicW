@@ -127,7 +127,7 @@ export function AgendaModal({ isOpen, onClose, room, bookings, doctors, onUpdate
                         <div className="flex items-center gap-2">
                           <Avatar className="h-6 w-6">
                             <AvatarImage src={doctor?.avatarUrl} />
-                            <AvatarFallback>{doctor?.name.charAt(0)}</AvatarFallback>
+                            <AvatarFallback>{doctor?.name?.charAt(0) ?? '?'}</AvatarFallback>
                           </Avatar>
                           <p className="text-sm font-semibold">{doctor?.name || 'Médico no asignado'}</p>
                         </div>

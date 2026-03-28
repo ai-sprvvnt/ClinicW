@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireUser, requireAdmin } from '@/lib/api-auth';
 import { hashPassword } from '@/lib/auth';
+import { getBlockedMinutesForEmail } from '@/lib/login-rate-limit';
+
+function isValidPassword(password: string) {
+  return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(password);
+}
 
 export async function GET() {
   const { user, response } = await requireUser();
@@ -15,6 +20,7 @@ export async function GET() {
     doctors: doctors.map((doctor) => ({
       ...doctor,
       email: doctor.user?.email || null,
+      blockedMinutes: doctor.user?.email ? getBlockedMinutesForEmail(doctor.user.email) : 0,
     })),
   });
 }
@@ -26,6 +32,12 @@ export async function POST(req: Request) {
   const { email, displayName, specialty, password, avatarUrl } = await req.json();
   if (!email || !displayName || !specialty || !password) {
     return NextResponse.json({ message: 'Faltan campos requeridos.' }, { status: 400 });
+  }
+  if (!isValidPassword(password)) {
+    return NextResponse.json(
+      { message: 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número.' },
+      { status: 400 }
+    );
   }
 
   const settings = await prisma.clinicSettings.findUnique({ where: { id: 1 } });
@@ -93,7 +105,15 @@ export async function PUT(req: Request) {
 
   const userUpdates: any = {};
   if (email) userUpdates.email = email;
-  if (password) userUpdates.passwordHash = await hashPassword(password);
+  if (password) {
+    if (!isValidPassword(password)) {
+      return NextResponse.json(
+        { message: 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número.' },
+        { status: 400 }
+      );
+    }
+    userUpdates.passwordHash = await hashPassword(password);
+  }
 
   if (Object.keys(userUpdates).length > 0) {
     await prisma.user.update({

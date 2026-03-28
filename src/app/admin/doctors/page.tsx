@@ -5,13 +5,15 @@ import { useIsAdmin } from '@/hooks/use-is-admin';
 import { useDoctors } from '@/hooks/use-doctors';
 import { useSessionUser } from '@/hooks/use-session-user';
 import { useMediaImages } from '@/hooks/use-media-images';
+import { useAdminSettingsContext } from '@/components/admin-settings-provider';
 import { Header } from '@/components/header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, UserPlus, ArrowLeft, Trash2, Pencil } from 'lucide-react';
+import { Loader2, UserPlus, ArrowLeft, Trash2, Pencil, Unlock } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -35,9 +37,10 @@ import {
 
 export default function DoctorsAdminPage() {
   const { isAdmin, isLoading: isAdminLoading } = useIsAdmin();
-  const { doctors, isLoading: isDoctorsLoading } = useDoctors();
+  const { doctors, isLoading: isDoctorsLoading, refetch: refetchDoctors } = useDoctors();
   const { user } = useSessionUser();
   const { images, isLoading: isMediaLoading } = useMediaImages();
+  const { settings, saveLimits } = useAdminSettingsContext();
   const { toast } = useToast();
 
   const [name, setName] = useState('');
@@ -46,7 +49,6 @@ export default function DoctorsAdminPage() {
   const [password, setPassword] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [maxDoctors, setMaxDoctors] = useState<string>('');
-  const [currentMaxDoctors, setCurrentMaxDoctors] = useState<number | null>(null);
 
   const [editOpen, setEditOpen] = useState(false);
   const [editDoctorId, setEditDoctorId] = useState<string | null>(null);
@@ -58,20 +60,20 @@ export default function DoctorsAdminPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteDoctor, setDeleteDoctor] = useState<any | null>(null);
 
-  React.useEffect(() => {
-    async function loadSettings() {
-      if (!user) return;
-      const res = await fetch('/api/settings', { credentials: 'include' });
-      if (!res.ok) return;
-      const data = await res.json();
-      setCurrentMaxDoctors(data.settings?.maxDoctors ?? null);
-    }
-    loadSettings();
-  }, [user]);
+  const isValidPassword = (value: string) =>
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(value);
 
   const handleAddDoctor = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !specialty || !email || !password) return;
+    if (!isValidPassword(password)) {
+      toast({
+        variant: 'destructive',
+        title: 'Contraseña inválida',
+        description: 'Debe tener mínimo 8 caracteres, con mayúscula, minúscula y número.',
+      });
+      return;
+    }
 
     const res = await fetch('/api/doctors', {
       method: 'POST',
@@ -112,24 +114,13 @@ export default function DoctorsAdminPage() {
 
   const handleSaveMaxDoctors = async () => {
     const value = maxDoctors.trim();
-    const payload = value === '' ? { maxDoctors: null } : { maxDoctors: Number(value) };
-    const res = await fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      toast({ variant: 'destructive', title: 'Error', description: err.message || 'No se pudo actualizar el máximo.' });
-      return;
+    try {
+      await saveLimits({ maxDoctors: value === '' ? null : Number(value) });
+      setMaxDoctors('');
+      toast({ title: 'Actualizado', description: 'El máximo de médicos fue actualizado.' });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Error', description: error?.message || 'No se pudo actualizar el máximo.' });
     }
-
-    const data = await res.json();
-    setCurrentMaxDoctors(data.settings?.maxDoctors ?? null);
-    setMaxDoctors('');
-    toast({ title: 'Actualizado', description: 'El máximo de médicos fue actualizado.' });
   };
 
   const openEdit = (doc: any) => {
@@ -144,6 +135,14 @@ export default function DoctorsAdminPage() {
 
   const handleUpdateDoctor = async () => {
     if (!editDoctorId) return;
+    if (editPassword && !isValidPassword(editPassword)) {
+      toast({
+        variant: 'destructive',
+        title: 'Contraseña inválida',
+        description: 'Debe tener mínimo 8 caracteres, con mayúscula, minúscula y número.',
+      });
+      return;
+    }
     const res = await fetch('/api/doctors', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -190,6 +189,24 @@ export default function DoctorsAdminPage() {
     window.location.reload();
   };
 
+  const handleUnblockDoctor = async (email: string) => {
+    const res = await fetch('/api/auth/unblock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      toast({ variant: 'destructive', title: 'Error', description: err.message || 'No se pudo desbloquear.' });
+      return;
+    }
+
+    toast({ title: 'Desbloqueado', description: 'El bloqueo fue eliminado.' });
+    void refetchDoctors();
+  };
+
   if (isAdminLoading) {
     return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
@@ -199,6 +216,7 @@ export default function DoctorsAdminPage() {
   }
 
   const isSuperAdmin = !!user?.isSuperAdmin;
+  const currentMaxDoctors = settings.maxDoctors;
   const maxReached = currentMaxDoctors !== null && doctors.length >= currentMaxDoctors;
 
   return (
@@ -236,6 +254,9 @@ export default function DoctorsAdminPage() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Contraseña inicial</label>
                   <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                  <p className="text-xs text-muted-foreground">
+                    Mínimo 8 caracteres, con mayúscula, minúscula y número.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground">Biblioteca de imágenes</p>
@@ -251,7 +272,14 @@ export default function DoctorsAdminPage() {
                         onClick={() => setAvatarUrl(img.url)}
                         title={img.filename}
                       >
-                        <img src={img.url} alt="img" className="h-full w-full object-contain" />
+                        <Image
+                          src={img.url}
+                          alt="img"
+                          width={40}
+                          height={40}
+                          unoptimized
+                          className="h-full w-full object-contain"
+                        />
                       </button>
                     ))}
                     {!isMediaLoading && images.length === 0 && (
@@ -310,6 +338,16 @@ export default function DoctorsAdminPage() {
                         <TableCell className="text-sm text-muted-foreground">{doc.email || '—'}</TableCell>
                         <TableCell>{doc.specialty}</TableCell>
                         <TableCell className="text-right flex items-center justify-end gap-2">
+                          {doc.blockedMinutes > 0 && doc.email && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title={`Bloqueado: ${doc.blockedMinutes} minuto(s). Desbloquear`}
+                              onClick={() => handleUnblockDoctor(doc.email)}
+                            >
+                              <Unlock className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button variant="ghost" size="icon" onClick={() => openEdit(doc)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
@@ -367,6 +405,9 @@ export default function DoctorsAdminPage() {
             <Input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} placeholder="Correo" />
             <Input value={editSpecialty} onChange={(e) => setEditSpecialty(e.target.value)} placeholder="Especialidad" />
             <Input type="password" value={editPassword} onChange={(e) => setEditPassword(e.target.value)} placeholder="Nueva contraseña (opcional)" />
+            <p className="text-xs text-muted-foreground">
+              Si cambias la contraseña: mínimo 8 caracteres, con mayúscula, minúscula y número.
+            </p>
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">Biblioteca de imágenes</p>
               <div className="grid grid-cols-6 gap-2">
@@ -381,7 +422,14 @@ export default function DoctorsAdminPage() {
                     onClick={() => setEditAvatarUrl(img.url)}
                     title={img.filename}
                   >
-                    <img src={img.url} alt="img" className="h-full w-full object-contain" />
+                    <Image
+                      src={img.url}
+                      alt="img"
+                      width={40}
+                      height={40}
+                      unoptimized
+                      className="h-full w-full object-contain"
+                    />
                   </button>
                 ))}
                 {!isMediaLoading && images.length === 0 && (

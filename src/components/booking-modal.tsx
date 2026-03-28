@@ -89,7 +89,7 @@ export function BookingModal({ isOpen, onClose, room, doctors, onAddBooking, loc
       const now = new Date();
       const slotsForToday = generateTimeSlots(today, 30, now);
       
-      const firstAvailable = slotsForToday.length > 0 ? slotsForToday[0].value : 480; // 8:00 AM
+      const firstAvailable = slotsForToday.length > 0 ? slotsForToday[0].value : 420; // 7:00 AM
       const secondAvailable = slotsForToday.length > 1 ? slotsForToday[1].value : firstAvailable + 60; // +1 hour
 
       form.reset({ 

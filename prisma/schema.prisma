@@ -1,5 +1,5 @@
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -24,6 +24,7 @@ model ClinicSettings {
   id        Int      @id @default(1)
   clinicName String?
   logoUrl   String?
+  themePalette String @default("clinic")
   maxRooms  Int?
   maxDoctors Int?
   createdAt DateTime @default(now())
@@ -47,6 +48,7 @@ model Doctor {
 model Room {
   id        String   @id @default(cuid())
   name      String
+  roomType  String   @default("General")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

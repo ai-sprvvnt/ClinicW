@@ -4,12 +4,13 @@ import React, { useState } from 'react';
 import { useIsAdmin } from '@/hooks/use-is-admin';
 import { useRooms } from '@/hooks/use-rooms';
 import { useSessionUser } from '@/hooks/use-session-user';
+import { useAdminSettingsContext } from '@/components/admin-settings-provider';
 import { Header } from '@/components/header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Plus, ArrowLeft, Trash2, Pencil, Building2 } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, Pencil, Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -24,35 +25,26 @@ export default function RoomsAdminPage() {
   const { isAdmin, isLoading: isAdminLoading } = useIsAdmin();
   const { rooms, isLoading: isRoomsLoading, refetch } = useRooms();
   const { user } = useSessionUser();
+  const { settings, saveLimits } = useAdminSettingsContext();
   const { toast } = useToast();
 
   const [roomName, setRoomName] = useState('');
+  const [roomType, setRoomType] = useState('');
   const [maxRooms, setMaxRooms] = useState<string>('');
-  const [currentMaxRooms, setCurrentMaxRooms] = useState<number | null>(null);
 
   const [editOpen, setEditOpen] = useState(false);
   const [editRoomId, setEditRoomId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
-
-  React.useEffect(() => {
-    async function loadSettings() {
-      if (!user) return;
-      const res = await fetch('/api/settings', { credentials: 'include' });
-      if (!res.ok) return;
-      const data = await res.json();
-      setCurrentMaxRooms(data.settings?.maxRooms ?? null);
-    }
-    loadSettings();
-  }, [user]);
+  const [editRoomType, setEditRoomType] = useState('');
 
   const handleCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!roomName) return;
+    if (!roomName || !roomType) return;
     const res = await fetch('/api/rooms', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ name: roomName }),
+      body: JSON.stringify({ name: roomName, roomType }),
     });
 
     if (!res.ok) {
@@ -62,34 +54,25 @@ export default function RoomsAdminPage() {
     }
 
     setRoomName('');
+    setRoomType('');
     await refetch();
   };
 
   const handleSaveMaxRooms = async () => {
     const value = maxRooms.trim();
-    const payload = value === '' ? { maxRooms: null } : { maxRooms: Number(value) };
-    const res = await fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      toast({ variant: 'destructive', title: 'Error', description: err.message || 'No se pudo actualizar el máximo.' });
-      return;
+    try {
+      await saveLimits({ maxRooms: value === '' ? null : Number(value) });
+      setMaxRooms('');
+      toast({ title: 'Actualizado', description: 'El máximo de consultorios fue actualizado.' });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Error', description: error?.message || 'No se pudo actualizar el máximo.' });
     }
-
-    const data = await res.json();
-    setCurrentMaxRooms(data.settings?.maxRooms ?? null);
-    setMaxRooms('');
-    toast({ title: 'Actualizado', description: 'El máximo de consultorios fue actualizado.' });
   };
 
   const openEdit = (room: any) => {
     setEditRoomId(room.id);
     setEditName(room.name || '');
+    setEditRoomType(room.roomType || '');
     setEditOpen(true);
   };
 
@@ -99,7 +82,7 @@ export default function RoomsAdminPage() {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ id: editRoomId, name: editName }),
+      body: JSON.stringify({ id: editRoomId, name: editName, roomType: editRoomType }),
     });
 
     if (!res.ok) {
@@ -114,7 +97,16 @@ export default function RoomsAdminPage() {
   };
 
   const handleDeleteRoom = async (room: any) => {
-    if (!confirm(`¿Eliminar el consultorio ${room.name}?`)) return;
+    if (
+      !confirm(
+        `¿Eliminar el consultorio "${room.name}"?\n\n` +
+          `Esta acción no se puede deshacer.\n` +
+          `Se eliminarán también sus reservas históricas.\n\n` +
+          `¿Deseas continuar?`
+      )
+    ) {
+      return;
+    }
 
     const res = await fetch('/api/rooms', {
       method: 'DELETE',
@@ -142,6 +134,7 @@ export default function RoomsAdminPage() {
   }
 
   const isSuperAdmin = !!user?.isSuperAdmin;
+  const currentMaxRooms = settings.maxRooms;
   const maxReached = currentMaxRooms !== null && rooms.length >= currentMaxRooms;
 
   return (
@@ -167,6 +160,10 @@ export default function RoomsAdminPage() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Nombre del Consultorio</label>
                   <Input value={roomName} onChange={(e) => setRoomName(e.target.value)} placeholder="Ej. Consultorio 1" required />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Tipo de Consultorio</label>
+                  <Input value={roomType} onChange={(e) => setRoomType(e.target.value)} placeholder="Ej. Psicológico, Médico, Pediatría" required />
                 </div>
                 <Button type="submit" disabled={maxReached} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-bold disabled:opacity-60">
                   Registrar Consultorio
@@ -195,6 +192,7 @@ export default function RoomsAdminPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Consultorio</TableHead>
+                      <TableHead>Tipo</TableHead>
                       <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -202,6 +200,7 @@ export default function RoomsAdminPage() {
                     {rooms?.map((room: any) => (
                       <TableRow key={room.id}>
                         <TableCell className="font-medium">{room.name}</TableCell>
+                        <TableCell>{room.roomType || 'General'}</TableCell>
                         <TableCell className="text-right flex items-center justify-end gap-2">
                           <Button variant="ghost" size="icon" onClick={() => openEdit(room)}>
                             <Pencil className="h-4 w-4" />
@@ -214,7 +213,7 @@ export default function RoomsAdminPage() {
                     ))}
                     {rooms?.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={2} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
                           No hay consultorios registrados.
                         </TableCell>
                       </TableRow>
@@ -249,6 +248,7 @@ export default function RoomsAdminPage() {
           </DialogHeader>
           <div className="space-y-3">
             <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Nombre" />
+            <Input value={editRoomType} onChange={(e) => setEditRoomType(e.target.value)} placeholder="Tipo de consultorio" />
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setEditOpen(false)}>Cancelar</Button>

@@ -10,6 +10,7 @@ export type RoomStatus = 'Ocupado' | 'Apartado' | 'Desocupado';
 export interface Room {
   id: string;
   name: string;
+  roomType: string;
 }
 
 export interface Doctor {
@@ -18,6 +19,7 @@ export interface Doctor {
   name?: string;
   displayName?: string;
   email?: string | null;
+  blockedMinutes?: number;
   specialty: string;
   avatarUrl: string;
 }

@@ -33,7 +33,8 @@ export async function clearSessionToken(token: string | undefined) {
 export async function getSessionUser() {
   const { cookies } = await import('next/headers');
   const SESSION_COOKIE = 'clinic_session';
-  const token = cookies().get(SESSION_COOKIE)?.value;
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
   const session = await prisma.session.findUnique({
     where: { token },

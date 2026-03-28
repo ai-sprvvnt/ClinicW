@@ -57,8 +57,8 @@ export function getRoomStatus(room: Room, bookings: Booking[], doctors: Doctor[]
  */
 export function generateTimeSlots(date: Date, interval: number = 30, now?: Date): { value: number, label: string }[] {
   const slots = [];
-  const startHour = 8;
-  const endHour = 20;
+  const startHour = 7;
+  const endHour = 22;
 
   const isToday = now ? isSameDay(date, now) : false;
   const currentTotalMinutes = now ? getHours(now) * 60 + getMinutes(now) : 0;
@@ -100,7 +100,7 @@ export const formatMinutesToTime = (minutes: number): string => {
 /**
  * Genera y descarga un archivo CSV a partir de un array de objetos.
  */
-export function exportToCSV(data: any[], filename: string) {
+export async function exportToCSV(data: any[], filename: string) {
   if (data.length === 0) return;
 
   const headers = Object.keys(data[0]);
@@ -124,32 +124,45 @@ export function exportToCSV(data: any[], filename: string) {
   const sanitizedName = withExtension.replace(/[\\/:*?"<>|]+/g, "_");
   const contentWithBom = "\uFEFF" + csvContent;
 
-  const form = document.createElement('form');
-  form.method = 'POST';
-  form.action = '/api/export-csv';
-  form.enctype = 'multipart/form-data';
-  form.style.display = 'none';
+  const formData = new FormData();
+  formData.append('content', contentWithBom);
+  formData.append('filename', sanitizedName);
 
-  const contentInput = document.createElement('input');
-  contentInput.type = 'hidden';
-  contentInput.name = 'content';
-  contentInput.value = contentWithBom;
-  form.appendChild(contentInput);
+  const res = await fetch('/api/export-csv', {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  });
 
-  const filenameInput = document.createElement('input');
-  filenameInput.type = 'hidden';
-  filenameInput.name = 'filename';
-  filenameInput.value = sanitizedName;
-  form.appendChild(filenameInput);
-
-  document.body.appendChild(form);
-  form.submit();
-
-  setTimeout(() => {
-    if (document.body.contains(form)) {
-      document.body.removeChild(form);
+  if (!res.ok) {
+    let message = 'No se pudo generar el CSV.';
+    try {
+      const data = await res.json();
+      if (data?.message) message = data.message;
+    } catch {
+      // ignore
     }
-  }, 1000);
+    throw new Error(message);
+  }
+
+  let downloadName = sanitizedName;
+  const disposition = res.headers.get('content-disposition');
+  if (disposition) {
+    const match = /filename\*?=(?:UTF-8'')?\"?([^\";]+)/i.exec(disposition);
+    if (match?.[1]) {
+      downloadName = decodeURIComponent(match[1]).trim();
+    }
+  }
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = downloadName || sanitizedName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 export { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, format };

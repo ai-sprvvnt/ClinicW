@@ -18,7 +18,7 @@ export async function GET() {
   const doctor = await prisma.doctor.findUnique({ where: { userId: user.id } });
   if (!doctor) return NextResponse.json({ bookings: [] });
 
-  const bookings = await prisma.booking.findMany();
+  const bookings = await prisma.booking.findMany({ where: { doctorId: doctor.id } });
   return NextResponse.json({ bookings });
 }
 

@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireUser } from '@/lib/api-auth';
 
+const VALID_BOOKING_STATUSES = ['reserved', 'confirmed', 'in_use', 'done', 'cancelled'] as const;
+type BookingStatus = (typeof VALID_BOOKING_STATUSES)[number];
+
 export async function POST(req: Request) {
   const { user, response } = await requireUser();
   if (response) return response;
@@ -9,6 +12,9 @@ export async function POST(req: Request) {
   const { bookingId, status } = await req.json();
   if (!bookingId || !status) {
     return NextResponse.json({ message: 'Faltan campos requeridos.' }, { status: 400 });
+  }
+  if (!VALID_BOOKING_STATUSES.includes(status as BookingStatus)) {
+    return NextResponse.json({ message: 'Estado de reserva inválido.' }, { status: 400 });
   }
 
   const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
@@ -26,7 +32,7 @@ export async function POST(req: Request) {
   const updated = await prisma.booking.update({
     where: { id: bookingId },
     data: {
-      status,
+      status: status as BookingStatus,
       updatedBy: user.id,
     },
   });

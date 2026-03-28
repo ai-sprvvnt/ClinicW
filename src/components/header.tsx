@@ -7,6 +7,7 @@ import { useIsDoctor } from '@/hooks/use-is-doctor';
 import { useSessionUser } from '@/hooks/use-session-user';
 import { useSettings } from '@/hooks/use-settings';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -37,9 +38,12 @@ export const Header = () => {
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           {branding.logoUrl ? (
-            <img
+            <Image
               src={branding.logoUrl}
               alt={branding.clinicName || 'ClinicWise'}
+              width={32}
+              height={32}
+              unoptimized
               className="h-8 w-8 rounded object-contain"
             />
           ) : (

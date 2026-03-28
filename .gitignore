@@ -47,7 +47,3 @@ prisma/dev.db
 # local workspace artifacts
 .idx
 .modified
-
-# firebase
-firebase-debug.log
-firestore-debug.log
