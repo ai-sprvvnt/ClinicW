@@ -14,8 +14,10 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Loader2, Users, LogOut, ArrowRight, FileDown, CalendarDays, CalendarRange, Building2 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { exportToCSV, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, format, cn } from '@/lib/utils';
+import { THEME_PALETTES, THEME_PALETTE_LABELS, type ThemePalette } from '@/lib/theme-palettes';
 
 export default function AdminPage() {
   const { user, isLoading: isUserLoading } = useSessionUser();
@@ -31,12 +33,14 @@ export default function AdminPage() {
   const [password, setPassword] = useState('');
   const [clinicName, setClinicName] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
+  const [themePalette, setThemePalette] = useState<ThemePalette>('clinic');
   const [isSavingBranding, setIsSavingBranding] = useState(false);
 
   const initialBranding = useMemo(
     () => ({
       clinicName: branding.clinicName || '',
       logoUrl: branding.logoUrl || '',
+      themePalette: branding.themePalette || 'clinic',
     }),
     [branding]
   );
@@ -44,13 +48,8 @@ export default function AdminPage() {
   React.useEffect(() => {
     setClinicName(initialBranding.clinicName);
     setLogoUrl(initialBranding.logoUrl);
-  }, [initialBranding.clinicName, initialBranding.logoUrl]);
-
-  React.useEffect(() => {
-    // touch settings endpoint to warm cache; no UI here
-    if (!user) return;
-    fetch('/api/settings', { credentials: 'include' }).catch(() => undefined);
-  }, [user]);
+    setThemePalette(initialBranding.themePalette);
+  }, [initialBranding.clinicName, initialBranding.logoUrl, initialBranding.themePalette]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +61,12 @@ export default function AdminPage() {
     });
 
     if (!res.ok) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Credenciales inválidas.' });
+      const err = await res.json().catch(() => ({}));
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: err.message || 'Credenciales inválidas.',
+      });
       return;
     }
 
@@ -124,8 +128,16 @@ export default function AdminPage() {
       return;
     }
 
-    exportToCSV(data, fileName);
-    toast({ title: 'Listo', description: 'El reporte se descargó correctamente.' });
+    try {
+      await exportToCSV(data, fileName);
+      toast({ title: 'Listo', description: 'El reporte se descargó correctamente.' });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error?.message || 'No se pudo generar el reporte.',
+      });
+    }
   };
 
   if (isUserLoading || isAdminLoading || isBookingsLoading || isRoomsLoading) {
@@ -192,6 +204,7 @@ export default function AdminPage() {
         body: JSON.stringify({
           clinicName: clinicName.trim() || null,
           logoUrl: logoUrl.trim() || null,
+          themePalette,
         }),
       });
 
@@ -304,7 +317,14 @@ export default function AdminPage() {
               {logoUrl.trim().length > 0 && (
                 <div className="rounded-md border bg-muted/30 p-3">
                   <p className="text-xs text-muted-foreground mb-2">Vista previa</p>
-                  <img src={logoUrl} alt="Logotipo" className="h-12 w-12 object-contain" />
+                  <Image
+                    src={logoUrl}
+                    alt="Logotipo"
+                    width={48}
+                    height={48}
+                    unoptimized
+                    className="h-12 w-12 object-contain"
+                  />
                 </div>
               )}
               <div className="space-y-2">
@@ -321,12 +341,37 @@ export default function AdminPage() {
                       onClick={() => setLogoUrl(img.url)}
                       title={img.filename}
                     >
-                      <img src={img.url} alt="img" className="h-full w-full object-contain" />
+                      <Image
+                        src={img.url}
+                        alt="img"
+                        width={40}
+                        height={40}
+                        unoptimized
+                        className="h-full w-full object-contain"
+                      />
                     </button>
                   ))}
                   {!isMediaLoading && images.length === 0 && (
                     <p className="col-span-6 text-xs text-muted-foreground">Sin imágenes aún.</p>
                   )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">Paleta de colores</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {THEME_PALETTES.map((palette) => (
+                    <button
+                      key={palette}
+                      type="button"
+                      className={cn(
+                        'rounded border px-3 py-2 text-left text-sm',
+                        themePalette === palette ? 'ring-2 ring-primary border-primary' : 'hover:bg-muted/40'
+                      )}
+                      onClick={() => setThemePalette(palette)}
+                    >
+                      {THEME_PALETTE_LABELS[palette]}
+                    </button>
+                  ))}
                 </div>
               </div>
             </CardContent>

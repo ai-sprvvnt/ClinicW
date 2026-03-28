@@ -14,9 +14,11 @@ export async function POST(req: Request) {
   const { response } = await requireAdmin();
   if (response) return response;
 
-  const { name } = await req.json();
-  if (!name) {
-    return NextResponse.json({ message: 'Nombre requerido.' }, { status: 400 });
+  const { name, roomType } = await req.json();
+  const trimmedName = typeof name === 'string' ? name.trim() : '';
+  const trimmedType = typeof roomType === 'string' ? roomType.trim() : '';
+  if (!trimmedName || !trimmedType) {
+    return NextResponse.json({ message: 'Nombre y tipo de consultorio son requeridos.' }, { status: 400 });
   }
 
   const settings = await prisma.clinicSettings.findUnique({ where: { id: 1 } });
@@ -30,7 +32,7 @@ export async function POST(req: Request) {
     }
   }
 
-  const room = await prisma.room.create({ data: { name } });
+  const room = await prisma.room.create({ data: { name: trimmedName, roomType: trimmedType } });
   return NextResponse.json({ room });
 }
 
@@ -38,12 +40,14 @@ export async function PUT(req: Request) {
   const { response } = await requireAdmin();
   if (response) return response;
 
-  const { id, name } = await req.json();
-  if (!id || !name) {
-    return NextResponse.json({ message: 'ID y nombre requeridos.' }, { status: 400 });
+  const { id, name, roomType } = await req.json();
+  const trimmedName = typeof name === 'string' ? name.trim() : '';
+  const trimmedType = typeof roomType === 'string' ? roomType.trim() : '';
+  if (!id || !trimmedName || !trimmedType) {
+    return NextResponse.json({ message: 'ID, nombre y tipo de consultorio son requeridos.' }, { status: 400 });
   }
 
-  const room = await prisma.room.update({ where: { id }, data: { name } });
+  const room = await prisma.room.update({ where: { id }, data: { name: trimmedName, roomType: trimmedType } });
   return NextResponse.json({ room });
 }
 
@@ -56,14 +60,32 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ message: 'ID requerido.' }, { status: 400 });
   }
 
+  const now = new Date();
   const activeBookings = await prisma.booking.count({
-    where: { roomId: id, status: { not: 'cancelled' } },
+    where: {
+      roomId: id,
+      status: { in: ['reserved', 'confirmed', 'in_use'] },
+      endAt: { gt: now },
+    },
   });
 
   if (activeBookings > 0) {
     return NextResponse.json({ message: 'El consultorio tiene reservas activas.' }, { status: 409 });
   }
 
-  await prisma.room.delete({ where: { id } });
-  return NextResponse.json({ success: true });
+  try {
+    await prisma.$transaction([
+      prisma.booking.deleteMany({ where: { roomId: id } }),
+      prisma.room.delete({ where: { id } }),
+    ]);
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    if (error?.code === 'P2025') {
+      return NextResponse.json({ message: 'Consultorio no encontrado.' }, { status: 404 });
+    }
+    if (error?.code === 'P2003') {
+      return NextResponse.json({ message: 'No se pudo eliminar por dependencias relacionadas.' }, { status: 409 });
+    }
+    throw error;
+  }
 }

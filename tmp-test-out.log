@@ -1,0 +1,10 @@
+
+> nextn@0.1.0 start
+> next start -H 127.0.0.1 -p 9010
+
+   ▲ Next.js 15.5.14
+   - Local:        http://127.0.0.1:9010
+   - Network:      http://127.0.0.1:9010
+
+ ✓ Starting...
+ ✓ Ready in 874ms

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSessionUser } from '@/hooks/use-session-user';
 import {
   AlertDialog,
@@ -17,18 +17,18 @@ const INACTIVITY_MINUTES = 240;
 const WARNING_MINUTES = 5;
 
 export function SessionTimeoutWarning() {
-  const { user } = useSessionUser();
+  const { user, refresh } = useSessionUser();
   const [open, setOpen] = useState(false);
   const warnTimerRef = useRef<NodeJS.Timeout | null>(null);
   const logoutTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
 
-  const clearTimers = () => {
+  const clearTimers = useCallback(() => {
     if (warnTimerRef.current) clearTimeout(warnTimerRef.current);
     if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
-  };
+  }, []);
 
-  const scheduleTimers = () => {
+  const scheduleTimers = useCallback(() => {
     clearTimers();
     const now = Date.now();
     const warnAt = now + (INACTIVITY_MINUTES - WARNING_MINUTES) * 60 * 1000;
@@ -40,13 +40,13 @@ export function SessionTimeoutWarning() {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
       window.location.href = '/';
     }, Math.max(0, logoutAt - now));
-  };
+  }, [clearTimers]);
 
-  const recordActivity = () => {
+  const recordActivity = useCallback(() => {
     lastActivityRef.current = Date.now();
-    if (open) setOpen(false);
+    setOpen(false);
     scheduleTimers();
-  };
+  }, [scheduleTimers]);
 
   useEffect(() => {
     if (!user) return;
@@ -59,7 +59,7 @@ export function SessionTimeoutWarning() {
       events.forEach((event) => window.removeEventListener(event, handler));
       clearTimers();
     };
-  }, [user]);
+  }, [clearTimers, recordActivity, user]);
 
   if (!user) return null;
 
@@ -76,7 +76,7 @@ export function SessionTimeoutWarning() {
           <AlertDialogCancel onClick={() => setOpen(false)}>Cerrar</AlertDialogCancel>
           <AlertDialogAction
             onClick={async () => {
-              await fetch('/api/auth/me', { credentials: 'include' });
+              await refresh();
               recordActivity();
             }}
           >
