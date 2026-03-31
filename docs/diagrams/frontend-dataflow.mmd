@@ -1,0 +1,20 @@
+flowchart TB
+  Root[RootLayout]
+
+  Root --> SessionProvider
+  Root --> SettingsProvider
+  Root --> RoomsProvider
+  Root --> DoctorsProvider
+  Root --> BookingsProvider
+
+  SessionProvider --> AuthMe[/api/auth/me/]
+  SettingsProvider --> Branding[/api/settings/branding/]
+  RoomsProvider --> Rooms[/api/rooms/]
+  DoctorsProvider --> Doctors[/api/doctors/]
+  BookingsProvider --> Bookings[/api/bookings/]
+  BookingsProvider --> BookingStatus[/api/bookings/status/]
+
+  AdminPage[/admin] --> AdminSettingsProvider
+  AdminSettingsProvider --> Settings[/api/settings/]
+  AdminDoctors[/admin/doctors] --> MediaImagesProvider
+  MediaImagesProvider --> MediaImages[/api/media/images/]

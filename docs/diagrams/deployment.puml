@@ -1,0 +1,22 @@
+@startuml
+node "User Device" as user {
+  artifact "Browser" as browser
+}
+
+node "App Server" as app {
+  artifact "Next.js App" as next
+  artifact "API Routes" as api
+}
+
+database "PostgreSQL" as db
+node "External" as ext {
+  artifact "Google GenAI" as genai
+}
+
+browser --> next : HTTPS
+next --> api : internal calls
+api --> db : Prisma
+api --> genai : Genkit
+next --> "public/catalog" : static assets
+
+@enduml

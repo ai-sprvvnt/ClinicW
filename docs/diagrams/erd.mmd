@@ -1,0 +1,71 @@
+erDiagram
+  User {
+    String id PK
+    String email
+    String passwordHash
+    String role
+    Boolean isSuperAdmin
+    Boolean canManageAdmins
+    DateTime createdAt
+    DateTime updatedAt
+  }
+
+  Doctor {
+    String id PK
+    String displayName
+    String specialty
+    String avatarUrl
+    String staffType
+    String userId FK
+    DateTime createdAt
+    DateTime updatedAt
+  }
+
+  Room {
+    String id PK
+    String name
+    String roomType
+    DateTime createdAt
+    DateTime updatedAt
+  }
+
+  Booking {
+    String id PK
+    String roomId FK
+    String doctorId FK
+    String dateKey
+    DateTime startAt
+    DateTime endAt
+    Int startMin
+    Int endMin
+    String status
+    String createdBy
+    String updatedBy
+    DateTime createdAt
+    DateTime updatedAt
+  }
+
+  Session {
+    String id PK
+    String token
+    String userId FK
+    DateTime expiresAt
+    DateTime lastActiveAt
+    DateTime createdAt
+  }
+
+  ClinicSettings {
+    Int id PK
+    String clinicName
+    String logoUrl
+    String themePalette
+    Int maxRooms
+    Int maxDoctors
+    DateTime createdAt
+    DateTime updatedAt
+  }
+
+  User ||--o{ Session : has
+  User ||--o| Doctor : profile
+  Doctor ||--o{ Booking : has
+  Room ||--o{ Booking : has

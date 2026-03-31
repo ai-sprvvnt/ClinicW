@@ -1,0 +1,21 @@
+sequenceDiagram
+  participant U as User
+  participant B as Browser
+  participant C as BookingsProvider
+  participant API as /api/bookings
+  participant DB as Prisma/Postgres
+
+  U->>B: Create booking
+  B->>C: addBooking()
+  C->>C: Client-side conflict check
+  C->>API: POST /api/bookings
+  API->>DB: Load day bookings
+  API->>API: Server-side conflict check
+  alt conflict
+    API-->>C: 409
+    C-->>B: Show conflict message
+  else ok
+    API->>DB: Create Booking
+    API-->>C: booking
+    C-->>B: Update UI
+  end
