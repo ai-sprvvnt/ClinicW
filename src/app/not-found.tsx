@@ -1,11 +1,10 @@
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth';
-import HomeClient from './home-client';
 
-export default async function Home() {
+export default async function NotFound() {
   const user = await getSessionUser();
   if (user) {
     redirect('/agenda');
   }
-  return <HomeClient />;
+  redirect('/');
 }

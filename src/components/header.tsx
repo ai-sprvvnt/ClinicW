@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { LogOut, Settings, User as UserIcon, Stethoscope } from 'lucide-react';
+import { CalendarDays, LogOut, Settings, User as UserIcon, Stethoscope } from 'lucide-react';
 
 export const Header = () => {
   const { user } = useSessionUser();
@@ -55,6 +55,14 @@ export const Header = () => {
         </Link>
 
         <div className="flex items-center gap-2">
+          {user ? (
+            <Link href="/agenda">
+              <Button variant="ghost" size="sm" className="font-bold gap-2 text-muted-foreground hover:text-primary">
+                <CalendarDays className="h-4 w-4" />
+                <span className="hidden sm:inline">Agenda</span>
+              </Button>
+            </Link>
+          ) : null}
           {isDoctor && !isAdmin && (
             <Link href="/doctor">
               <Button variant="ghost" size="sm" className="font-bold gap-2 text-muted-foreground hover:text-primary">

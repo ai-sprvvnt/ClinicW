@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { format } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Clock, Calendar, CheckCircle2, Timer, Ban } from 'lucide-react';
 import type { Room, Booking, Doctor, BookingStatus } from '@/lib/types';
@@ -37,7 +37,10 @@ export function AgendaModal({ isOpen, onClose, room, bookings, doctors, onUpdate
   const now = new Date();
   const sortedBookings = [...bookings]
     .filter(b => !['cancelled', 'done'].includes(b.status) && b.endAt > now)
-    .sort((a, b) => a.startMin - b.startMin);
+    .sort((a, b) => a.startAt.getTime() - b.startAt.getTime());
+  const displayDate = sortedBookings[0]?.startAt || now;
+  const headerDate = format(displayDate, 'PPPP', { locale: es });
+  const isHeaderToday = isSameDay(displayDate, now);
 
   const sessionDoctor = useMemo(() => {
     if (!user || user.role !== 'DOCTOR') return null;
@@ -98,62 +101,78 @@ export function AgendaModal({ isOpen, onClose, room, bookings, doctors, onUpdate
             Agenda: {room.name}
           </DialogTitle>
           <DialogDescription>
-            Citas programadas para hoy, {format(new Date(), 'PPPP', { locale: es })}.
+            Citas programadas.
           </DialogDescription>
         </DialogHeader>
 
         <ScrollArea className="max-h-[60vh] pr-4">
           <div className="space-y-4 py-4">
             {sortedBookings.length > 0 ? (
-              sortedBookings.map((booking) => {
+              sortedBookings.map((booking, index) => {
                 const doctor = booking.doctorId ? doctors.find((d) => d.id === booking.doctorId) : undefined;
+                const previous = index > 0 ? sortedBookings[index - 1] : null;
+                const showDateHeader = !previous || !isSameDay(previous.startAt, booking.startAt);
+                const isBookingToday = isSameDay(booking.startAt, now);
+                const isBookingTomorrow = isSameDay(booking.startAt, new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
+                const bookingDateFull = format(booking.startAt, 'PPPP', { locale: es });
+                const bookingDateLabel = isBookingToday
+                  ? `Hoy · ${bookingDateFull}`
+                  : isBookingTomorrow
+                    ? `Mañana · ${bookingDateFull}`
+                    : bookingDateFull;
                 return (
-                  <div 
-                    key={booking.id} 
-                    className={cn(
-                      "flex items-center justify-between p-4 rounded-lg border bg-card transition-colors",
-                      booking.status === 'in_use' && "border-primary bg-primary/5",
-                      booking.status === 'cancelled' && "opacity-50"
+                  <div key={booking.id} className="space-y-2">
+                    {showDateHeader && (
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {bookingDateLabel}
+                      </div>
                     )}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="flex flex-col items-center justify-center min-w-[70px] py-1 bg-muted rounded text-xs font-bold uppercase tracking-tighter">
-                        <span className="text-foreground">{format(booking.startAt, 'HH:mm')}</span>
-                        <div className="h-px w-4 bg-muted-foreground/30 my-0.5" />
-                        <span className="text-muted-foreground">{format(booking.endAt, 'HH:mm')}</span>
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-6 w-6">
-                            <AvatarImage src={doctor?.avatarUrl} />
-                            <AvatarFallback>{doctor?.name?.charAt(0) ?? '?'}</AvatarFallback>
-                          </Avatar>
-                          <p className="text-sm font-semibold">{doctor?.name || 'Médico no asignado'}</p>
-                        </div>
-                        <p className="text-xs text-muted-foreground ml-8">{doctor?.specialty}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-2">
-                      <div className="flex items-center gap-1.5">
-                        {getStatusIcon(booking.status)}
-                        <span className="text-[10px] font-bold uppercase text-muted-foreground">
-                          {getStatusLabel(booking.status)}
-                        </span>
-                      </div>
-                      {canCancelBooking(booking) && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-8 px-2 text-xs"
-                          disabled={isCancellingId === booking.id}
-                          onClick={() => handleCancel(booking)}
-                        >
-                          {isCancellingId === booking.id ? 'Cancelando...' : 'Cancelar'}
-                        </Button>
+                    <div 
+                      className={cn(
+                        "flex items-center justify-between p-4 rounded-lg border bg-card transition-colors",
+                        booking.status === 'in_use' && "border-primary bg-primary/5",
+                        booking.status === 'cancelled' && "opacity-50"
                       )}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="flex flex-col items-center justify-center min-w-[70px] py-1 bg-muted rounded text-xs font-bold uppercase tracking-tighter">
+                          <span className="text-foreground">{format(booking.startAt, 'HH:mm')}</span>
+                          <div className="h-px w-4 bg-muted-foreground/30 my-0.5" />
+                          <span className="text-muted-foreground">{format(booking.endAt, 'HH:mm')}</span>
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-6 w-6">
+                              <AvatarImage src={doctor?.avatarUrl} />
+                              <AvatarFallback>{doctor?.name?.charAt(0) ?? '?'}</AvatarFallback>
+                            </Avatar>
+                            <p className="text-sm font-semibold">{doctor?.name || 'Médico no asignado'}</p>
+                          </div>
+                          <p className="text-xs text-muted-foreground ml-8">{doctor?.specialty}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-end gap-2">
+                        <div className="flex items-center gap-1.5">
+                          {getStatusIcon(booking.status)}
+                          <span className="text-[10px] font-bold uppercase text-muted-foreground">
+                            {getStatusLabel(booking.status)}
+                          </span>
+                        </div>
+                        {canCancelBooking(booking) && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-2 text-xs"
+                            disabled={isCancellingId === booking.id}
+                            onClick={() => handleCancel(booking)}
+                          >
+                            {isCancellingId === booking.id ? 'Cancelando...' : 'Cancelar'}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -161,7 +180,7 @@ export function AgendaModal({ isOpen, onClose, room, bookings, doctors, onUpdate
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-center space-y-2">
                 <Calendar className="h-12 w-12 text-muted-foreground/20" />
-                <p className="text-muted-foreground font-medium">No hay citas registradas para hoy.</p>
+                <p className="text-muted-foreground font-medium">No hay citas registradas.</p>
               </div>
             )}
           </div>

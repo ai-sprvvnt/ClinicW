@@ -18,6 +18,7 @@ export async function GET() {
       email: user.email,
       role: user.role,
       isSuperAdmin: user.isSuperAdmin,
+      canManageAdmins: user.canManageAdmins,
       displayName: doctor?.displayName || null,
     },
   });

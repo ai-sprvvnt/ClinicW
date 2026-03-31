@@ -10,12 +10,19 @@ export async function GET() {
     where: { userId: user.id },
     include: { user: { select: { email: true } } },
   });
+  if (!doctor) {
+    return NextResponse.json({ doctor: null });
+  }
+
+  const { id, userId, displayName, specialty, avatarUrl } = doctor;
   return NextResponse.json({
-    doctor: doctor
-      ? {
-          ...doctor,
-          email: doctor.user?.email || null,
-        }
-      : null,
+    doctor: {
+      id,
+      userId,
+      displayName,
+      specialty,
+      avatarUrl,
+      email: doctor.user?.email || null,
+    },
   });
 }
