@@ -1,10 +1,18 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 generator client {
   provider = "prisma-client-js"
+}
+
+enum StaffType {
+  Profesional
+  PracticasProfesionales
+  ServicioSocial
+  PersonalInterno
 }
 
 model User {
@@ -13,8 +21,9 @@ model User {
   passwordHash String
   role         String
   isSuperAdmin Boolean   @default(false)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  canManageAdmins Boolean @default(false)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @db.Timestamptz(3)
 
   doctor       Doctor?
   sessions     Session[]
@@ -27,8 +36,8 @@ model ClinicSettings {
   themePalette String @default("clinic")
   maxRooms  Int?
   maxDoctors Int?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 }
 
 
@@ -37,9 +46,14 @@ model Doctor {
   displayName String
   specialty   String
   avatarUrl   String?
+  degree      String?
+  license     String?  @unique
+  career      String?
+  roleDescription String?
+  staffType   StaffType @default(Profesional)
   userId      String   @unique
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
 
   user        User     @relation(fields: [userId], references: [id])
   bookings    Booking[]
@@ -49,8 +63,8 @@ model Room {
   id        String   @id @default(cuid())
   name      String
   roomType  String   @default("General")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   bookings  Booking[]
 }
@@ -60,13 +74,13 @@ model Booking {
   roomId    String
   doctorId  String?
   dateKey   String
-  startAt   DateTime
-  endAt     DateTime
+  startAt   DateTime @db.Timestamptz(3)
+  endAt     DateTime @db.Timestamptz(3)
   startMin  Int
   endMin    Int
   status    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
   createdBy String?
   updatedBy String?
 
@@ -82,9 +96,9 @@ model Session {
   id        String   @id @default(cuid())
   token     String   @unique
   userId    String
-  expiresAt DateTime
-  lastActiveAt DateTime @default(now())
-  createdAt DateTime @default(now())
+  expiresAt DateTime @db.Timestamptz(3)
+  lastActiveAt DateTime @default(now()) @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   user      User     @relation(fields: [userId], references: [id])
 }

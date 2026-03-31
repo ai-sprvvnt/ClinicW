@@ -48,6 +48,13 @@ export default function DoctorsAdminPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [staffType, setStaffType] = useState('Profesional');
+  const [degree, setDegree] = useState('');
+  const [license, setLicense] = useState('');
+  const [career, setCareer] = useState('');
+  const [roleDescription, setRoleDescription] = useState('');
+  const [isAdminAccount, setIsAdminAccount] = useState(false);
+  const [canManageAdminsAccount, setCanManageAdminsAccount] = useState(false);
   const [maxDoctors, setMaxDoctors] = useState<string>('');
 
   const [editOpen, setEditOpen] = useState(false);
@@ -57,6 +64,14 @@ export default function DoctorsAdminPage() {
   const [editEmail, setEditEmail] = useState('');
   const [editPassword, setEditPassword] = useState('');
   const [editAvatarUrl, setEditAvatarUrl] = useState('');
+  const [editStaffType, setEditStaffType] = useState('Profesional');
+  const [editDegree, setEditDegree] = useState('');
+  const [editLicense, setEditLicense] = useState('');
+  const [editCareer, setEditCareer] = useState('');
+  const [editRoleDescription, setEditRoleDescription] = useState('');
+  const [editIsAdminAccount, setEditIsAdminAccount] = useState(false);
+  const [editCanManageAdminsAccount, setEditCanManageAdminsAccount] = useState(false);
+  const [confirmDemoteOpen, setConfirmDemoteOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteDoctor, setDeleteDoctor] = useState<any | null>(null);
 
@@ -66,6 +81,14 @@ export default function DoctorsAdminPage() {
   const handleAddDoctor = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !specialty || !email || !password) return;
+    if (staffType === 'Profesional' && !license.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Cédula requerida',
+        description: 'La cédula o licencia es obligatoria para personal profesional.',
+      });
+      return;
+    }
     if (!isValidPassword(password)) {
       toast({
         variant: 'destructive',
@@ -85,6 +108,13 @@ export default function DoctorsAdminPage() {
         specialty,
         password,
         avatarUrl: avatarUrl.trim() || null,
+        staffType,
+        degree,
+        license,
+        career,
+        roleDescription,
+        isAdmin: isAdminAccount,
+        canManageAdmins: canManageAdminsAccount,
       }),
     });
 
@@ -108,6 +138,13 @@ export default function DoctorsAdminPage() {
     setEmail('');
     setPassword('');
     setAvatarUrl('');
+    setStaffType('Profesional');
+    setDegree('');
+    setLicense('');
+    setCareer('');
+    setRoleDescription('');
+    setIsAdminAccount(false);
+    setCanManageAdminsAccount(false);
 
     window.location.reload();
   };
@@ -130,11 +167,26 @@ export default function DoctorsAdminPage() {
     setEditEmail(doc.email || '');
     setEditPassword('');
     setEditAvatarUrl(doc.avatarUrl || '');
+    setEditStaffType(doc.staffType || 'Profesional');
+    setEditDegree(doc.degree || '');
+    setEditLicense(doc.license || '');
+    setEditCareer(doc.career || '');
+    setEditRoleDescription(doc.roleDescription || '');
+    setEditIsAdminAccount(doc.role === 'ADMIN');
+    setEditCanManageAdminsAccount(!!doc.canManageAdmins);
     setEditOpen(true);
   };
 
   const handleUpdateDoctor = async () => {
     if (!editDoctorId) return;
+    if (editStaffType === 'Profesional' && !editLicense.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Cédula requerida',
+        description: 'La cédula o licencia es obligatoria para personal profesional.',
+      });
+      return;
+    }
     if (editPassword && !isValidPassword(editPassword)) {
       toast({
         variant: 'destructive',
@@ -154,6 +206,13 @@ export default function DoctorsAdminPage() {
         email: editEmail,
         password: editPassword || undefined,
         avatarUrl: editAvatarUrl.trim() || null,
+        staffType: editStaffType,
+        degree: editDegree,
+        license: editLicense,
+        career: editCareer,
+        roleDescription: editRoleDescription,
+        isAdmin: editIsAdminAccount,
+        canManageAdmins: editCanManageAdminsAccount,
       }),
     });
 
@@ -216,6 +275,7 @@ export default function DoctorsAdminPage() {
   }
 
   const isSuperAdmin = !!user?.isSuperAdmin;
+  const canAssignAdmins = isSuperAdmin || !!user?.canManageAdmins;
   const currentMaxDoctors = settings.maxDoctors;
   const maxReached = currentMaxDoctors !== null && doctors.length >= currentMaxDoctors;
 
@@ -241,19 +301,106 @@ export default function DoctorsAdminPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Nombre Completo</label>
-                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. Dra. Elena Vasquez" required />
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Ej. Dra. Elena Vasquez"
+                    required
+                    className={!name.trim() ? 'border-destructive focus-visible:ring-destructive' : undefined}
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Correo del Médico</label>
-                  <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="correo@medico.com" required />
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="correo@medico.com"
+                    required
+                    className={!email.trim() ? 'border-destructive focus-visible:ring-destructive' : undefined}
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Especialidad</label>
-                  <Input value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="Ej. Cardiología" required />
+                  <Input
+                    value={specialty}
+                    onChange={(e) => setSpecialty(e.target.value)}
+                    placeholder="Ej. Cardiología"
+                    required
+                    className={!specialty.trim() ? 'border-destructive focus-visible:ring-destructive' : undefined}
+                  />
                 </div>
                 <div className="space-y-2">
+                  <label className="text-sm font-medium">Tipo de Personal</label>
+                  <select
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={staffType}
+                    onChange={(e) => setStaffType(e.target.value)}
+                  >
+                    <option value="Profesional">Profesional</option>
+                    <option value="PracticasProfesionales">Prácticas Profesionales</option>
+                    <option value="ServicioSocial">Servicio Social</option>
+                    <option value="PersonalInterno">Personal Interno</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Título Profesional</label>
+                  <Input value={degree} onChange={(e) => setDegree(e.target.value)} placeholder="Ej. Médico Cirujano" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Cédula o Licencia</label>
+                  <Input
+                    value={license}
+                    onChange={(e) => setLicense(e.target.value)}
+                    placeholder="Ej. 1234567"
+                    className={staffType === 'Profesional' && !license.trim() ? 'border-destructive focus-visible:ring-destructive' : undefined}
+                  />
+                  {staffType === 'Profesional' && (
+                    <p className="text-xs text-muted-foreground">Obligatoria para personal profesional.</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Trayectoria/Carrera</label>
+                  <Input value={career} onChange={(e) => setCareer(e.target.value)} placeholder="Breve historial profesional" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Qué hace</label>
+                  <Input value={roleDescription} onChange={(e) => setRoleDescription(e.target.value)} placeholder="Funciones dentro de la clínica" />
+                </div>
+                {canAssignAdmins && (
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={isAdminAccount}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setIsAdminAccount(checked);
+                        if (!checked) setCanManageAdminsAccount(false);
+                      }}
+                    />
+                    ¿Registrar como Administrador?
+                  </label>
+                )}
+                {isSuperAdmin && (
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={canManageAdminsAccount}
+                      onChange={(e) => setCanManageAdminsAccount(e.target.checked)}
+                      disabled={!isAdminAccount}
+                    />
+                    Puede administrar administradores
+                  </label>
+                )}
+                <div className="space-y-2">
                   <label className="text-sm font-medium">Contraseña inicial</label>
-                  <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                  <Input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className={!password.trim() ? 'border-destructive focus-visible:ring-destructive' : undefined}
+                  />
                   <p className="text-xs text-muted-foreground">
                     Mínimo 8 caracteres, con mayúscula, minúscula y número.
                   </p>
@@ -319,10 +466,12 @@ export default function DoctorsAdminPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Médico</TableHead>
-                      <TableHead>Correo</TableHead>
-                      <TableHead>Especialidad</TableHead>
-                      <TableHead className="text-right">Acciones</TableHead>
+                  <TableHead>Médico</TableHead>
+                  <TableHead>Correo</TableHead>
+                  <TableHead>Especialidad</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Cédula</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -337,6 +486,8 @@ export default function DoctorsAdminPage() {
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{doc.email || '—'}</TableCell>
                         <TableCell>{doc.specialty}</TableCell>
+                        <TableCell>{doc.staffType || '—'}</TableCell>
+                        <TableCell>{doc.license ? 'Con cédula' : 'Sin cédula'}</TableCell>
                         <TableCell className="text-right flex items-center justify-end gap-2">
                           {doc.blockedMinutes > 0 && doc.email && (
                             <Button
@@ -396,14 +547,76 @@ export default function DoctorsAdminPage() {
       </main>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className="max-h-[85vh] overflow-hidden p-0">
+          <DialogHeader className="px-6 pt-6 pb-2">
             <DialogTitle>Editar Médico</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Nombre" />
-            <Input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} placeholder="Correo" />
-            <Input value={editSpecialty} onChange={(e) => setEditSpecialty(e.target.value)} placeholder="Especialidad" />
+          <div className="max-h-[calc(85vh-132px)] overflow-y-auto px-6 pb-6 space-y-3 pt-2">
+            <Input
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder="Nombre"
+              className={!editName.trim() ? 'border-destructive focus-visible:ring-destructive' : undefined}
+            />
+            <Input
+              value={editEmail}
+              onChange={(e) => setEditEmail(e.target.value)}
+              placeholder="Correo"
+              className={!editEmail.trim() ? 'border-destructive focus-visible:ring-destructive' : undefined}
+            />
+            <Input
+              value={editSpecialty}
+              onChange={(e) => setEditSpecialty(e.target.value)}
+              placeholder="Especialidad"
+              className={!editSpecialty.trim() ? 'border-destructive focus-visible:ring-destructive' : undefined}
+            />
+            <select
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={editStaffType}
+              onChange={(e) => setEditStaffType(e.target.value)}
+            >
+              <option value="Profesional">Profesional</option>
+              <option value="PracticasProfesionales">Prácticas Profesionales</option>
+              <option value="ServicioSocial">Servicio Social</option>
+              <option value="PersonalInterno">Personal Interno</option>
+            </select>
+            <Input value={editDegree} onChange={(e) => setEditDegree(e.target.value)} placeholder="Título Profesional" />
+            <Input
+              value={editLicense}
+              onChange={(e) => setEditLicense(e.target.value)}
+              placeholder="Cédula o Licencia"
+              className={editStaffType === 'Profesional' && !editLicense.trim() ? 'border-destructive focus-visible:ring-destructive' : undefined}
+            />
+            <Input value={editCareer} onChange={(e) => setEditCareer(e.target.value)} placeholder="Trayectoria/Carrera" />
+            <Input value={editRoleDescription} onChange={(e) => setEditRoleDescription(e.target.value)} placeholder="Qué hace" />
+            {canAssignAdmins && (
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={editIsAdminAccount}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    if (!checked) {
+                      setConfirmDemoteOpen(true);
+                      return;
+                    }
+                    setEditIsAdminAccount(true);
+                  }}
+                />
+                ¿Administrador?
+              </label>
+            )}
+            {isSuperAdmin && (
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={editCanManageAdminsAccount}
+                  onChange={(e) => setEditCanManageAdminsAccount(e.target.checked)}
+                  disabled={!editIsAdminAccount}
+                />
+                Puede administrar administradores
+              </label>
+            )}
             <Input type="password" value={editPassword} onChange={(e) => setEditPassword(e.target.value)} placeholder="Nueva contraseña (opcional)" />
             <p className="text-xs text-muted-foreground">
               Si cambias la contraseña: mínimo 8 caracteres, con mayúscula, minúscula y número.
@@ -438,12 +651,34 @@ export default function DoctorsAdminPage() {
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="px-6 pb-6">
             <Button variant="ghost" onClick={() => setEditOpen(false)}>Cancelar</Button>
             <Button onClick={handleUpdateDoctor}>Guardar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={confirmDemoteOpen} onOpenChange={setConfirmDemoteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar cambio de rol</AlertDialogTitle>
+            <AlertDialogDescription>
+              Estás quitando privilegios de administrador. Esta persona perderá acceso a las pantallas de administración.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setEditIsAdminAccount(false);
+                setEditCanManageAdminsAccount(false);
+              }}
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>

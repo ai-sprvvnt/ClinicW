@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useMemo, useState } from 'react';
 import { Header } from '@/components/header';
@@ -7,19 +7,19 @@ import { BookingModal } from '@/components/booking-modal';
 import { AgendaModal } from '@/components/agenda-modal';
 import type { Room, Booking, Doctor } from '@/lib/types';
 import { useBookingManager } from '@/hooks/use-booking-manager';
-import { useIsDoctor } from '@/hooks/use-is-doctor';
-import { useCurrentDoctor } from '@/hooks/use-current-doctor';
 import { useDoctors } from '@/hooks/use-doctors';
 import { useRooms } from '@/hooks/use-rooms';
+import { useSessionUser } from '@/hooks/use-session-user';
 import { Loader2 } from 'lucide-react';
 import { addDays, endOfDay, isWithinInterval, startOfDay } from 'date-fns';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
-export default function DoctorPage() {
-  const { isDoctor, isLoading: isDoctorLoading } = useIsDoctor();
-  const { doctor, isLoading: isDoctorDocLoading } = useCurrentDoctor();
+export default function AgendaClient() {
+  const { user, isLoading: isUserLoading } = useSessionUser();
   const { bookings, addBooking, updateBookingStatus, isLoading: isBookingsLoading } = useBookingManager();
+  const { doctors, isLoading: isDocsLoading } = useDoctors();
   const { rooms, isLoading: isRoomsLoading } = useRooms();
-  const { doctors, isLoading: isDoctorsLoading } = useDoctors();
 
   const [modalState, setModalState] = useState<{ open: boolean; room: Room | null }>({
     open: false,
@@ -62,7 +62,7 @@ export default function DoctorPage() {
     ) as Record<string, Booking[]>;
   }, [bookingsByRoom, range]);
 
-  if (isDoctorLoading || isDoctorDocLoading || isBookingsLoading || isRoomsLoading || isDoctorsLoading) {
+  if (isBookingsLoading || isDocsLoading || isUserLoading || isRoomsLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -70,8 +70,32 @@ export default function DoctorPage() {
     );
   }
 
-  if (!isDoctor || !doctor) {
-    return <div className="p-8 text-center font-headline">No autorizado</div>;
+  if (!user) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <Header />
+        <main className="flex-1 container mx-auto px-4 py-12">
+          <div className="mx-auto max-w-xl rounded-2xl border bg-card p-8 text-center">
+            <h2 className="text-2xl font-headline font-bold text-foreground">Acceso restringido</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Inicia sesión para ver la agenda y gestionar las salas.
+            </p>
+            <div className="mt-6 flex items-center justify-center gap-3">
+              <Link href="/admin">
+                <Button size="sm" className="font-bold">
+                  Acceso Staff
+                </Button>
+              </Link>
+              <Link href="/">
+                <Button size="sm" variant="ghost" className="font-bold">
+                  Volver al inicio
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
   }
 
   return (
@@ -107,7 +131,7 @@ export default function DoctorPage() {
               key={room.id}
               room={room}
               bookings={filteredBookingsByRoom[room.id] || []}
-              doctors={doctors}
+              doctors={doctors as Doctor[]}
               onBook={() => setModalState({ open: true, room })}
               onViewAgenda={() => setAgendaState({ open: true, room })}
               onUpdateStatus={updateBookingStatus}
@@ -122,10 +146,9 @@ export default function DoctorPage() {
           isOpen={modalState.open}
           onClose={() => setModalState({ open: false, room: null })}
           room={modalState.room}
-          doctors={doctors}
+          doctors={doctors as Doctor[]}
           bookings={bookingsByRoom[modalState.room.id] || []}
           onAddBooking={addBooking}
-          lockedDoctorId={doctor.id}
         />
       )}
 
@@ -134,7 +157,7 @@ export default function DoctorPage() {
           isOpen={agendaState.open}
           onClose={() => setAgendaState({ open: false, room: null })}
           room={agendaState.room}
-          doctors={doctors}
+          doctors={doctors as Doctor[]}
           bookings={bookingsByRoom[agendaState.room.id] || []}
           onUpdateStatus={updateBookingStatus}
         />

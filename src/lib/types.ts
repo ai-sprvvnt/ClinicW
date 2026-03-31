@@ -20,8 +20,15 @@ export interface Doctor {
   displayName?: string;
   email?: string | null;
   blockedMinutes?: number;
+  role?: string;
+  canManageAdmins?: boolean;
   specialty: string;
   avatarUrl: string;
+  staffType?: 'Profesional' | 'PracticasProfesionales' | 'ServicioSocial' | 'PersonalInterno';
+  degree?: string | null;
+  license?: string | null;
+  career?: string | null;
+  roleDescription?: string | null;
 }
 
 export interface Booking {

@@ -7,6 +7,7 @@ export interface SessionUser {
   email: string;
   role: 'ADMIN' | 'DOCTOR';
   isSuperAdmin?: boolean;
+  canManageAdmins?: boolean;
   displayName?: string | null;
 }
 

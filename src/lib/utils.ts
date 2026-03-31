@@ -1,6 +1,6 @@
-import { clsx, type ClassValue } from "clsx"
+﻿import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { isWithinInterval, format, set, isSameDay, getHours, getMinutes, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { isWithinInterval, format, set, isSameDay, addDays, getHours, getMinutes, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import type { Booking, Room, RoomStatusInfo, Doctor } from './types';
 
 export function cn(...inputs: ClassValue[]) {
@@ -10,8 +10,8 @@ export function cn(...inputs: ClassValue[]) {
 export function getRoomStatus(room: Room, bookings: Booking[], doctors: Doctor[], now: Date): RoomStatusInfo {
   const todayKey = format(now, 'yyyy-MM-dd');
   const todayBookings = bookings
-    .filter(b => 
-      b.dateKey === todayKey && 
+    .filter(b =>
+      b.dateKey === todayKey &&
       !['cancelled', 'done'].includes(b.status) &&
       b.endAt > now
     )
@@ -35,11 +35,37 @@ export function getRoomStatus(room: Room, bookings: Booking[], doctors: Doctor[]
 
   if (nextBooking) {
     const doctor = nextBooking.doctorId ? (doctors.find(d => d.id === nextBooking.doctorId) || null) : null;
+    const isTodayBooking = isSameDay(nextBooking.startAt, now);
+    const dateLabel = isTodayBooking ? 'hoy' : format(nextBooking.startAt, 'dd/MM');
     return {
       status: 'Apartado',
       booking: nextBooking,
       doctor: doctor,
-      text: `Próximo ${format(nextBooking.startAt, 'HH:mm')} - ${format(nextBooking.endAt, 'HH:mm')}`,
+      text: `Próximo ${dateLabel} ${format(nextBooking.startAt, 'HH:mm')} - ${format(nextBooking.endAt, 'HH:mm')}`,
+    };
+  }
+
+  const upcomingBooking = bookings
+    .filter(b =>
+      !['cancelled', 'done'].includes(b.status) &&
+      b.startAt > now
+    )
+    .sort((a, b) => a.startAt.getTime() - b.startAt.getTime())[0];
+
+  if (upcomingBooking) {
+    const doctor = upcomingBooking.doctorId ? (doctors.find(d => d.id === upcomingBooking.doctorId) || null) : null;
+    const isTodayBooking = isSameDay(upcomingBooking.startAt, now);
+    const isTomorrowBooking = isSameDay(upcomingBooking.startAt, addDays(now, 1));
+    const dateLabel = isTodayBooking
+      ? 'hoy'
+      : isTomorrowBooking
+        ? 'mañana'
+        : format(upcomingBooking.startAt, 'dd/MM');
+    return {
+      status: 'Apartado',
+      booking: upcomingBooking,
+      doctor: doctor,
+      text: `Próximo ${dateLabel} ${format(upcomingBooking.startAt, 'HH:mm')} - ${format(upcomingBooking.endAt, 'HH:mm')}`,
     };
   }
 
@@ -50,10 +76,9 @@ export function getRoomStatus(room: Room, bookings: Booking[], doctors: Doctor[]
     text: 'Libre todo el día',
   };
 }
-
 /**
- * Genera slots de tiempo para un día específico.
- * Si se proporciona `now` y el día es hoy, filtra las horas pasadas.
+ * Genera slots de tiempo para un dÃ­a especÃ­fico.
+ * Si se proporciona `now` y el dÃ­a es hoy, filtra las horas pasadas.
  */
 export function generateTimeSlots(date: Date, interval: number = 30, now?: Date): { value: number, label: string }[] {
   const slots = [];
@@ -166,3 +191,4 @@ export async function exportToCSV(data: any[], filename: string) {
 }
 
 export { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, format };
+

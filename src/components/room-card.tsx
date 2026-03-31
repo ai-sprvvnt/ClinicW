@@ -35,6 +35,18 @@ export const RoomCard = ({
   const now = currentTime || new Date(2025, 0, 1, 12, 0);
   const statusInfo = getRoomStatus(room, bookings, doctors, now);
   const { status, booking, doctor, text } = statusInfo;
+  const bookingStatusLabel: Record<string, string> = {
+    reserved: 'Reservado',
+    confirmed: 'Confirmado',
+    in_use: 'En curso',
+    done: 'Finalizado',
+    cancelled: 'Cancelado',
+  };
+  const isLate =
+    !!currentTime &&
+    !!booking &&
+    booking.status === 'confirmed' &&
+    currentTime > booking.startAt;
 
   const canCheckIn =
     !!currentTime &&
@@ -88,6 +100,15 @@ export const RoomCard = ({
             <Clock className="w-5 h-5" />
             <p className="text-sm">{currentTime ? text : 'Actualizando estado...'}</p>
           </div>
+          {booking && (
+            <div className="flex items-center gap-3">
+              <Calendar className="w-5 h-5" />
+              <p className="text-sm">
+                Estado: <span className="font-semibold text-foreground">{bookingStatusLabel[booking.status] || booking.status}</span>
+                {isLate && <span className="ml-2 text-xs font-semibold text-destructive">Retrasado</span>}
+              </p>
+            </div>
+          )}
           {!doctor && status === 'Desocupado' && (
             <div className="flex items-center gap-3">
               <Calendar className="w-5 h-5" />

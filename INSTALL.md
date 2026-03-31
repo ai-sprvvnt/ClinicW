@@ -124,3 +124,7 @@ Unregister-ScheduledTask -TaskName ClinicServer -Confirm:$false
   - `scripts/setup-local-server-task.ps1`
 - Revisar configuracion guardada:
   - `npm run check:settings`
+
+## 11. Fechas y zonas horarias
+La base de datos usa `timestamptz` (UTC). Esto permite convertir la hora al mostrarla según la zona del usuario/clinica.
+Si ves horas distintas a tu local, es esperado. La UI debe convertir desde UTC a la zona correspondiente.

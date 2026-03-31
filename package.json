@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:dev": "node -e \"require('dotenv').config(); process.env.DATABASE_URL=process.env.MIGRATE_DATABASE_URL; const extra=process.argv.slice(2); const r=require('child_process').spawnSync('cmd.exe', ['/c','node_modules\\\\.bin\\\\prisma.cmd','migrate','dev', ...extra], { stdio: 'inherit', env: process.env }); if (r.error) { console.error(r.error); } process.exit(r.status ?? 1);\" --",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "create-admin": "node scripts/create-admin.js",

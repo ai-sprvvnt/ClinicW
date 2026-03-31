@@ -47,3 +47,10 @@ prisma/dev.db
 # local workspace artifacts
 .idx
 .modified
+
+# local notes
+TODO.md
+
+# temp sql dumps
+tmp-*.sql
+prismamigrations*.sql
