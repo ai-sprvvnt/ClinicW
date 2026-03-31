@@ -1,0 +1,34 @@
+@startuml
+!define C4P https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master
+!includeurl C4P/C4_Component.puml
+
+LAYOUT_TOP_DOWN()
+
+Person(admin, "Admin/Staff", "Gestiona doctores, rooms, reportes")
+Person(doctor, "Doctor", "Consulta agenda y reservas")
+
+System_Boundary(web, "ClinicWise Web App") {
+  Container_Boundary(next, "Next.js App Router") {
+    Component(ui, "UI Pages", "React", "Agenda, Doctor, Admin")
+    Component(providers, "State Providers", "React Context", "Session, Rooms, Doctors, Bookings, Settings")
+    Component(api, "API Routes", "Next.js", "Auth, Doctors, Rooms, Bookings, Settings, Media, CSV, AI")
+    Component(auth, "Auth & Session", "TS", "Session cookies, rate-limit, password hash")
+    Component(ai, "Genkit Flow", "Genkit", "Conflict resolution")
+  }
+}
+
+System_Ext(db, "PostgreSQL", "Prisma schema")
+System_Ext(genai, "Google GenAI", "Gemini via Genkit")
+System_Ext(storage, "Public Catalog", "Static images")
+
+Rel(admin, ui, "Uses")
+Rel(doctor, ui, "Uses")
+Rel(ui, providers, "Reads/Writes")
+Rel(providers, api, "Fetches")
+Rel(api, auth, "Uses")
+Rel(api, db, "Read/Write", "Prisma")
+Rel(api, storage, "Reads")
+Rel(api, ai, "Calls")
+Rel(ai, genai, "Uses")
+
+@enduml

@@ -1,0 +1,6 @@
+flowchart LR
+  Admin[Admin/Staff] -->|Uses| WebApp[ClinicWise Web App (Next.js)]
+  Doctor[Doctor] -->|Uses| WebApp
+  WebApp -->|Reads/Writes| DB[(PostgreSQL)]
+  WebApp -->|AI suggestions| GenAI[Google GenAI via Genkit]
+  WebApp -->|Serves static assets| Catalog[public/catalog images]

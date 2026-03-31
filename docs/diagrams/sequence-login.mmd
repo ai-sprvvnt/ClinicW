@@ -1,0 +1,18 @@
+sequenceDiagram
+  participant U as User
+  participant B as Browser
+  participant API as /api/auth/login
+  participant DB as Prisma/Postgres
+
+  U->>B: Submit email + password
+  B->>API: POST /api/auth/login
+  API->>DB: Find user by email
+  API->>API: Verify password (bcrypt)
+  alt valid
+    API->>DB: Create Session
+    API-->>B: Set cookie clinic_session
+    B-->>U: Logged in
+  else invalid
+    API-->>B: 401 or 429
+    B-->>U: Error message
+  end

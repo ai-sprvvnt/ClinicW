@@ -1,0 +1,8 @@
+flowchart LR
+  Browser[Browser (React UI)] <--> NextApp[Next.js App Router]
+  NextApp --> APIRoutes[API Route Handlers]
+  APIRoutes --> Prisma[Prisma Client]
+  Prisma --> DB[(PostgreSQL)]
+  APIRoutes --> Genkit[Genkit Flow]
+  Genkit --> Gemini[Gemini via googleAI plugin]
+  NextApp --> Catalog[public/catalog static assets]

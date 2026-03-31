@@ -1,0 +1,164 @@
+@startuml
+skinparam componentStyle rectangle
+
+package "Pages" {
+  [Home /] as home
+  [Agenda /agenda] as agenda
+  [Doctor /doctor] as doctor
+  [Admin /admin] as admin
+  [Admin Doctors] as adminDoctors
+  [Admin Rooms] as adminRooms
+  [Admin Branding] as adminBranding
+}
+
+package "UI Components" {
+  [Header]
+  [RoomCard]
+  [BookingModal]
+  [AgendaModal]
+  [SessionTimeoutWarning]
+}
+
+package "Providers" {
+  [SessionProvider]
+  [SettingsProvider]
+  [RoomsProvider]
+  [DoctorsProvider]
+  [BookingsProvider]
+  [AdminSettingsProvider]
+  [MediaImagesProvider]
+}
+
+package "Hooks" {
+  [useSessionUser]
+  [useBookingManager]
+  [useRooms]
+  [useDoctors]
+  [useIsAdmin]
+  [useIsDoctor]
+  [useCurrentDoctor]
+  [useSettings]
+  [useMediaImages]
+}
+
+package "API" {
+  [auth/*]
+  [doctors]
+  [rooms]
+  [bookings]
+  [settings]
+  [media/images]
+  [export-csv]
+  [automated-conflict-resolution]
+}
+
+package "Flows" {
+  [Login Flow]
+  [Session Timeout]
+  [Booking Create Flow]
+  [Booking Status Flow]
+  [CSV Export Flow]
+  [Rooms Admin Flow]
+  [Branding Flow]
+  [AI Conflict Flow]
+  [Limits Flow]
+}
+
+home --> [Header]
+agenda --> [Header]
+agenda --> [RoomCard]
+agenda --> [BookingModal]
+agenda --> [AgendaModal]
+
+Doctor --> [Header]
+Doctor --> [RoomCard]
+Doctor --> [BookingModal]
+Doctor --> [AgendaModal]
+
+admin --> [Header]
+adminDoctors --> [Header]
+adminRooms --> [Header]
+adminBranding --> [Header]
+
+[SessionTimeoutWarning] --> [auth/*]
+
+[SessionProvider] --> [auth/*]
+[SettingsProvider] --> [settings]
+[RoomsProvider] --> [rooms]
+[DoctorsProvider] --> [doctors]
+[BookingsProvider] --> [bookings]
+[AdminSettingsProvider] --> [settings]
+[MediaImagesProvider] --> [media/images]
+
+[useSessionUser] --> [SessionProvider]
+[useBookingManager] --> [BookingsProvider]
+[useRooms] --> [RoomsProvider]
+[useDoctors] --> [DoctorsProvider]
+[useIsAdmin] --> [useSessionUser]
+[useIsDoctor] --> [useSessionUser]
+[useCurrentDoctor] --> [doctors]
+[useSettings] --> [SettingsProvider]
+[useMediaImages] --> [MediaImagesProvider]
+
+agenda --> [useBookingManager]
+agenda --> [useRooms]
+agenda --> [useDoctors]
+agenda --> [useSessionUser]
+
+Doctor --> [useBookingManager]
+Doctor --> [useRooms]
+Doctor --> [useDoctors]
+Doctor --> [useIsDoctor]
+Doctor --> [useCurrentDoctor]
+
+admin --> [useIsAdmin]
+admin --> [useSessionUser]
+admin --> [useBookingManager]
+admin --> [useRooms]
+admin --> [useDoctors]
+admin --> [useSettings]
+
+adminDoctors --> [useIsAdmin]
+adminDoctors --> [useDoctors]
+adminDoctors --> [useSessionUser]
+adminDoctors --> [useMediaImages]
+
+adminRooms --> [useIsAdmin]
+adminRooms --> [useRooms]
+adminRooms --> [AdminSettingsProvider]
+
+adminBranding --> [useIsAdmin]
+adminBranding --> [useSettings]
+adminBranding --> [MediaImagesProvider]
+
+[Login Flow] --> admin
+[Login Flow] --> [auth/*]
+
+[Session Timeout] --> [SessionTimeoutWarning]
+[Session Timeout] --> [auth/*]
+
+[Booking Create Flow] --> [BookingModal]
+[Booking Create Flow] --> [useBookingManager]
+[Booking Create Flow] --> [bookings]
+
+[Booking Status Flow] --> [RoomCard]
+[Booking Status Flow] --> [bookings]
+
+[CSV Export Flow] --> admin
+[CSV Export Flow] --> [export-csv]
+
+[Rooms Admin Flow] --> adminRooms
+[Rooms Admin Flow] --> [rooms]
+[Rooms Admin Flow] --> [settings]
+
+[Branding Flow] --> adminBranding
+[Branding Flow] --> [settings]
+[Branding Flow] --> [media/images]
+
+[AI Conflict Flow] --> [BookingModal]
+[AI Conflict Flow] --> [automated-conflict-resolution]
+
+[Limits Flow] --> [AdminSettingsProvider]
+[Limits Flow] --> [settings]
+
+@enduml
